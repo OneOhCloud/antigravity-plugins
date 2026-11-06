@@ -1,0 +1,93 @@
+# OneOh Cloud Antigravity Plugins
+
+**English** | [简体中文](./README.zh-CN.md)
+
+Official multi-plugin monorepo for Google Antigravity (`Antigravity 2.0` IDE and `agy` CLI), maintained by **OneOh Cloud**. Every plugin in this repository is built with zero external runtime dependencies, non-invasive read-only data collection, pure vector SVG iconography, and built-in bilingual (`English` / `简体中文`) localization.
+
+---
+
+## Quick Installation (1 Step)
+
+Run the following single-line command in your terminal to install all plugins into `~/.gemini/config/plugins`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main/scripts/install.sh | bash
+```
+
+To install a specific plugin by name (for example `agy-token-telemetry`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main/scripts/install.sh | bash -s -- agy-token-telemetry
+```
+
+### Alternative: Clone & Install (2 Steps)
+
+```bash
+git clone https://github.com/OneOhCloud/antigravity-plugins.git
+./antigravity-plugins/scripts/install.sh
+```
+
+---
+
+## Plugin Catalog
+
+| Plugin Name | Category | Version | Languages | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.md) | Sidecar Aux Pane / Telemetry | `1.0.0` | `en`, `zh-CN` | Real-time session token usage, `gen_metadata` readable model & endpoint mapping, end-to-end `tok/s` velocity, and `contextWindow` / `AGY_CLI_AUTO_COMPACT_OVERRIDE` telemetry pane. |
+
+---
+
+## Repository Architecture
+
+This repository is structured as a multi-plugin monorepo so additional Antigravity plugins can be added under `plugins/<plugin-name>` without coupling:
+
+```text
+antigravity-plugins/
+├── .agents/
+│   └── plugins.json                         # Workspace plugin discovery manifest
+├── plugins/
+│   └── agy-token-telemetry/                 # Token & Model Telemetry sidecar plugin
+│       ├── plugin.json                      # Plugin manifest
+│       ├── README.md                        # Plugin documentation (English)
+│       ├── README.zh-CN.md                  # Plugin documentation (Simplified Chinese)
+│       ├── assets/
+│       │   └── logo.svg                     # Pure vector SVG logo
+│       └── sidecars/
+│           └── telemetry-pane/
+│               ├── sidecar.json             # Sidecar process & auxiliary pane config
+│               ├── main.mjs                 # Sidecar HTTP/API entrypoint
+│               ├── collector.mjs            # Read-only RPC & SQLite telemetry collector
+│               ├── proto_decoder.mjs        # Zero-dependency Protobuf wire decoder
+│               └── ui.html                  # Apple HIG telemetry UI (EN / 中文)
+├── scripts/
+│   └── install.sh                           # One-step installer script
+├── LICENSE                                  # MIT License
+├── README.md                                # Repository documentation (English)
+└── README.zh-CN.md                          # Repository documentation (Simplified Chinese)
+```
+
+---
+
+## Internationalization (i18n)
+
+All UI plugins in this repository support **English (`en`)** and **Simplified Chinese (`zh-CN`)**:
+
+1. **Automatic Detection**: Automatically detects the language from Antigravity / VSCode NLS configuration (`ANTIGRAVITY_LOCALE`, `VSCODE_NLS_CONFIG`), OS locale (`LANG`, `LC_ALL`), or browser `navigator.language`.
+2. **Manual Switch**: Click the `EN` / `中文` toggle button in the top toolbar at any time to switch languages in-place and persist your preference across sessions.
+
+---
+
+## Contributing a New Plugin
+
+1. Create a new directory under `plugins/<your-plugin-name>/` with a valid `plugin.json` manifest, `README.md`, and `README.zh-CN.md`.
+2. Validate the plugin manifest strictly using the Antigravity CLI:
+   ```bash
+   agy plugin validate plugins/<your-plugin-name> --strict
+   ```
+3. Run `./scripts/install.sh <your-plugin-name>` to deploy and verify in a live Antigravity session.
+
+---
+
+## License
+
+Released under the [MIT License](./LICENSE). Copyright (c) 2026 OneOh Cloud.

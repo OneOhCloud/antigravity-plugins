@@ -1,0 +1,32 @@
+# Operating system and editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Dependencies and runtime artifacts
+node_modules/
+*.log
+npm-debug.log*
+
+# Strictly exclude local project instructions, test suites, test data, and verification reports
+GEMINI.md
+CLAUDE.md
+.local/
+.claude/
+test/
+tests/
+__tests__/
+**/*.test.js
+**/*.test.mjs
+**/*.test.ts
+**/*.spec.js
+**/*.spec.mjs
+**/*.spec.ts
+*report*.html
+*-report.html
+*.report.html
+*.snap
+coverage/

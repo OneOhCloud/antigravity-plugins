@@ -1,0 +1,28 @@
+{
+  "name": "agy-token-telemetry",
+  "displayName": "AGY Token & Model Telemetry",
+  "description": "Real-time session token usage, gen_metadata model & endpoint identifier mapping, end-to-end tok/s velocity, and contextWindow / AGY_CLI_AUTO_COMPACT_OVERRIDE telemetry pane for Antigravity (English & Simplified Chinese).",
+  "version": "1.0.0",
+  "logo": "assets/logo.svg",
+  "author": {
+    "name": "OneOh Cloud",
+    "email": "github@oneoh.cloud",
+    "url": "https://github.com/OneOhCloud"
+  },
+  "homepage": "https://github.com/OneOhCloud/antigravity-plugins",
+  "repository": "https://github.com/OneOhCloud/antigravity-plugins",
+  "license": "MIT",
+  "keywords": [
+    "telemetry",
+    "tokens",
+    "throughput",
+    "models",
+    "context-window",
+    "sidecar"
+  ],
+  "suggestedPrompts": [
+    "Open the Token & Model Telemetry sidecar pane",
+    "Check current session token usage and end-to-end tok/s velocity",
+    "打开 Token 与模型遥测侧边栏面板"
+  ]
+}

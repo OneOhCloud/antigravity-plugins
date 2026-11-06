@@ -1,0 +1,2031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AGY Telemetry</title>
+  <script src="/preload.js"></script>
+  <style>
+    :root {
+      --bg-canvas: #ffffff;
+      --bg-surface: #f5f5f7;
+      --bg-elevated: #e8e8ed;
+      --text-primary: #1d1d1f;
+      --text-secondary: #515154;
+      --text-tertiary: #86868b;
+      --bar-primary: #1d1d1f;
+      --bar-secondary: #86868b;
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --radius-sm: 8px;
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+      --font-mono: "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-canvas) !important;
+      color: var(--text-primary) !important;
+      font-family: var(--font-sans) !important;
+      font-size: 13px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-shell {
+      height: 100vh;
+      max-height: 100vh;
+      width: 100%;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 8px 4px !important;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    /* Layout L15: Bottom Dock Navigation */
+    .app-shell.layout-L15 {
+      flex-direction: column-reverse;
+    }
+
+    /* Layout L16: Vertical Sidebar Navigation */
+    .app-shell.layout-L16 {
+      flex-direction: row;
+    }
+    .app-shell.layout-L16 .top-bar {
+      width: 132px;
+      flex-shrink: 0;
+      justify-content: flex-start;
+    }
+    .app-shell.layout-L16 .toolbar-row {
+      grid-template-columns: 1fr;
+    }
+    .app-shell.layout-L16 .nav-tabs {
+      grid-template-columns: 1fr;
+    }
+
+    .top-bar {
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .toolbar-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+      gap: 5px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 700;
+      font-size: 11.5px;
+      color: var(--bar-primary);
+      padding: 5px 7px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-elevated);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .brand-badge svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    select, button {
+      font-family: var(--font-sans);
+      font-size: 12px;
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 5px 8px;
+      outline: none;
+      cursor: pointer;
+      transition: opacity 0.14s ease;
+    }
+
+    select:hover, button:hover {
+      opacity: 0.85;
+    }
+
+    select {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-lang {
+      font-weight: 600;
+      font-size: 11.5px;
+      padding: 5px 7px;
+      white-space: nowrap;
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+    }
+
+    .btn-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      font-weight: 600;
+      background: var(--bar-primary);
+      color: var(--bg-canvas);
+      padding: 5px 9px;
+      white-space: nowrap;
+    }
+
+    .btn-icon svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .nav-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      background: var(--bg-elevated);
+      padding: 3px;
+      border-radius: var(--radius-md);
+    }
+
+    .nav-tab {
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 6px;
+      border-radius: 7px;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav-tab.active {
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .tab-stage {
+      flex: 1 1 0;
+      min-height: 0;
+      max-height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .tab-pane {
+      display: none;
+      flex: 1 1 0;
+      min-height: 0;
+      max-height: 100%;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .tab-pane.active {
+      display: flex;
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 0 0 auto;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .card.fill {
+      flex: 0 1 auto;
+      min-height: 0;
+      max-height: 100%;
+      overflow: hidden;
+    }
+
+    .top-pair-grid {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .gauge-track {
+      height: 6px;
+      width: 100%;
+      background: var(--bg-elevated);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .gauge-fill {
+      height: 100%;
+      background: var(--bar-primary);
+      border-radius: 999px;
+      transition: width 0.22s ease;
+    }
+
+    .meta-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hero-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .kpi-box {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+
+    .kpi-val {
+      font-family: var(--font-mono);
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-unit {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      margin-left: 4px;
+    }
+
+    .kpi-sub {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .scroll-area {
+      flex: 0 1 auto;
+      min-height: 0;
+      max-height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 2px;
+    }
+
+    .model-row-card {
+      padding: 6px 2px;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .model-top-line {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .model-display-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .model-rate-tag {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--bar-primary);
+      white-space: nowrap;
+    }
+
+    .model-id-grid {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+    }
+
+    .endpoint-id {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .enum-id {
+      color: var(--text-tertiary);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .mini-bar-fill {
+      height: 100%;
+      background: var(--bar-primary);
+    }
+
+    .mini-bar-fill.alt {
+      background: var(--bar-secondary);
+    }
+
+    /* Overview Layout Variations (L01 - L20) */
+    .ov-stage {
+      flex: 1 1 0;
+      min-height: 0;
+      max-height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .ov-split-lr {
+      flex: 1 1 0;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 165px 1fr;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .stacked-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .stacked-bar {
+      height: 7px;
+      width: 100%;
+      background: var(--bg-elevated);
+      border-radius: 999px;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .stat-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .table-wrap {
+      flex: 0 1 auto;
+      min-height: 0;
+      max-height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: var(--bg-surface);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      padding: 4px 8px 8px 0;
+      white-space: nowrap;
+      z-index: 1;
+    }
+
+    td {
+      font-size: 12px;
+      color: var(--text-primary);
+      padding: 7px 8px 7px 0;
+      vertical-align: top;
+    }
+
+    .num-col {
+      text-align: right;
+      padding-right: 0;
+      padding-left: 8px;
+      white-space: nowrap;
+    }
+
+    .subtle {
+      color: var(--text-tertiary);
+      font-size: 11px;
+    }
+
+    /* Tab 5: Studio Combinator (20 Layouts x 20 Icons x 20 Colors) */
+    .studio-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+    }
+
+    .studio-chip {
+      padding: 4px 5px;
+      border-radius: 6px;
+      background: var(--bg-canvas);
+      color: var(--text-secondary);
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .studio-chip.active {
+      background: var(--bar-primary);
+      color: var(--bg-canvas);
+      font-weight: 600;
+    }
+
+    .studio-chip svg {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+    }
+
+    .swatch-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <header class="top-bar">
+      <div class="toolbar-row">
+        <button type="button" class="brand-badge" id="brandBadgeBtn" title="Toggle 20x20x20 Studio Combinator">
+          <span id="brandIconSlot"></span>
+          <span class="mono" id="presetCodeLabel">L06·I20·C01</span>
+        </button>
+        <select id="conversationSelect" title="Select Conversation"></select>
+        <select id="pollIntervalSelect" title="Poll Interval">
+          <option value="10000" selected>10s</option>
+          <option value="5000">5s</option>
+          <option value="30000">30s</option>
+          <option value="0" id="pollManualOption">Manual</option>
+        </select>
+        <button type="button" class="btn-lang" id="langToggleBtn" title="Switch Language (English / 简体中文)">中文</button>
+        <button class="btn-icon" id="refreshBtn" type="button">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M13.5 8a5.5 5.5 0 1 1-1.3-3.5M13.5 2.5v2.5H11" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span id="statusTimestamp">Refresh</span>
+        </button>
+      </div>
+
+      <nav class="nav-tabs" role="tablist">
+        <button type="button" class="nav-tab active" data-tab="overview" data-i18n="tabOverview">Overview</button>
+        <button type="button" class="nav-tab" data-tab="tokens" data-i18n="tabTokens">Tokens &amp; Velocity</button>
+        <button type="button" class="nav-tab" data-tab="models" data-i18n="tabModels">Model Registry</button>
+        <button type="button" class="nav-tab" data-tab="steps" data-i18n="tabSteps">Config &amp; Steps</button>
+      </nav>
+    </header>
+
+    <main class="tab-stage">
+      <!-- TAB 1: OVERVIEW (Dynamic Layout Engine supporting L01..L20) -->
+      <section class="tab-pane active" id="pane-overview">
+        <div class="ov-stage" id="overviewDynamicStage"></div>
+      </section>
+
+      <!-- TAB 2: TOKENS & THROUGHPUT (Top 2 Cards + Full-Width Rows Below) -->
+      <section class="tab-pane" id="pane-tokens">
+        <div class="top-pair-grid">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" data-i18n="tkE2ETitle">End-to-End Velocity</span>
+              <span class="card-meta" id="tkSampleCount">0 valid samples</span>
+            </div>
+            <div><span class="kpi-val" id="tkE2ESession">-</span><span class="kpi-unit">tok/s</span></div>
+            <div class="kpi-sub" id="tkE2ESub">Latest - · Last 5 -</div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" data-i18n="tkTotalTitle">Cumulative Tokens</span>
+              <span class="card-meta" id="tkCacheHitRate">Cache -</span>
+            </div>
+            <div><span class="kpi-val" id="tkGrandTotal">-</span><span class="kpi-unit">tok</span></div>
+            <div class="kpi-sub" id="tkPromptSub">Input - · Output -</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="tkMixTitle">Token Composition</span>
+            <span class="card-meta" id="tkTotalRequests">0 requests</span>
+          </div>
+
+          <div class="stacked-group">
+            <div class="meta-strip">
+              <span data-i18n="tkInputMixDesc">Input Mix · Cache Read vs Fresh Input</span>
+              <span class="mono" id="tkInputMixLabel">-</span>
+            </div>
+            <div class="stacked-bar">
+              <div class="mini-bar-fill" id="tkCacheBar" style="width: 0%"></div>
+              <div class="mini-bar-fill alt" id="tkFreshInputBar" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="stacked-group">
+            <div class="meta-strip">
+              <span data-i18n="tkOutputMixDesc">Output Mix · Thinking vs Response</span>
+              <span class="mono" id="tkOutputMixLabel">-</span>
+            </div>
+            <div class="stacked-bar">
+              <div class="mini-bar-fill" id="tkThinkingBar" style="width: 0%"></div>
+              <div class="mini-bar-fill alt" id="tkResponseBar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card fill">
+          <div class="card-head">
+            <span class="card-title" data-i18n="tkValidListTitle">Valid Step Requests</span>
+            <span class="card-meta" id="tkValidListMeta">0 valid requests</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="thStep">Step</th>
+                  <th data-i18n="thModelEndpoint">Model &amp; Endpoint</th>
+                  <th class="num-col" data-i18n="thCacheOutput">Cache / Output</th>
+                  <th class="num-col" data-i18n="thE2EVelocity">E2E Velocity</th>
+                </tr>
+              </thead>
+              <tbody id="tkValidStepsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: MODEL DICTIONARY (Top 2 Cards + Full-Width Table Below) -->
+      <section class="tab-pane" id="pane-models">
+        <div class="top-pair-grid">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" data-i18n="mdDiscoveredTitle">Discovered Models</span>
+              <span class="card-meta" id="mdScannedConvs">0 sessions</span>
+            </div>
+            <div><span class="kpi-val" id="mdModelCount">0</span><span class="kpi-unit" data-i18n="unitModels">models</span></div>
+            <div class="kpi-sub" id="mdTopModelName">Primary -</div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" data-i18n="mdGlobalCallsTitle">Total Global Calls</span>
+              <span class="card-meta" data-i18n="mdGlobalCallsMeta">Trajectory Aggregation</span>
+            </div>
+            <div><span class="kpi-val" id="mdTotalGlobalReqs">0</span><span class="kpi-unit" data-i18n="unitCalls">calls</span></div>
+            <div class="kpi-sub" id="mdTopEndpointId">Endpoint -</div>
+          </div>
+        </div>
+
+        <div class="card fill">
+          <div class="card-head">
+            <span class="card-title" data-i18n="mdRegistryTableTitle">Local Model Registry</span>
+            <span class="card-meta" id="mdGlobalSummary">0 sessions</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="thDisplayName">Display Name</th>
+                  <th data-i18n="thEndpointId">Endpoint ID</th>
+                  <th class="num-col" data-i18n="thCallsWindow">Calls / Window</th>
+                  <th class="num-col" data-i18n="thE2EVelocity">E2E Velocity</th>
+                </tr>
+              </thead>
+              <tbody id="mdGlobalTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: CONFIG & STEPS (Top 2 Cards + Full-Width Table Below) -->
+      <section class="tab-pane" id="pane-steps">
+        <div class="top-pair-grid">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" data-i18n="stAutoCompactTitle">Auto-Compact Policy</span>
+              <span class="card-meta" id="stDataSource">AUTO_COMPACT</span>
+            </div>
+            <div class="kpi-val" style="font-size:22px" id="stAutoCompactVal">-</div>
+            <div class="kpi-sub" id="stAutoCompactSrc">-</div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title" data-i18n="stContextWinTitle">Context Window Limit</span>
+              <span class="card-meta">contextWindow</span>
+            </div>
+            <div class="kpi-val" id="stContextWinVal">-</div>
+            <div class="kpi-sub" id="stPlannerMaxOut">-</div>
+          </div>
+        </div>
+
+        <div class="card fill">
+          <div class="card-head">
+            <span class="card-title" data-i18n="stStepsLogTitle">Step Telemetry Log</span>
+            <span class="card-meta" id="stStepsCount">0 steps</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="thStep">Step</th>
+                  <th data-i18n="thModelEndpoint">Model &amp; Endpoint</th>
+                  <th class="num-col" data-i18n="thOutputTtft">Output / TTFT</th>
+                  <th class="num-col" data-i18n="thE2EVelocity">E2E Velocity</th>
+                </tr>
+              </thead>
+              <tbody id="stStepsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: 20x20x20 STUDIO COMBINATOR -->
+      <section class="tab-pane" id="pane-studio">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="studioLayoutsTitle">20 Overview Layouts (L01 - L20)</span>
+            <span class="card-meta" id="activeLayoutName">L06</span>
+          </div>
+          <div class="studio-grid" id="layoutPickerGrid"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="studioIconsTitle">20 Pure Vector SVG Icons (I01 - I20)</span>
+            <span class="card-meta" id="activeIconName">I20</span>
+          </div>
+          <div class="studio-grid" id="iconPickerGrid"></div>
+        </div>
+
+        <div class="card fill">
+          <div class="card-head">
+            <span class="card-title" data-i18n="studioColorsTitle">20 Color Palettes (C01 - C20)</span>
+            <span class="card-meta" id="activeColorName">C01</span>
+          </div>
+          <div class="studio-grid" id="colorPickerGrid"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const I18N = {
+        en: {
+          brandTooltip: 'Toggle 20x20x20 Studio Combinator',
+          selectConvTooltip: 'Select Conversation',
+          pollTooltip: 'Poll Interval',
+          langTooltip: 'Switch Language (English / 简体中文)',
+          langToggleLabel: '中文',
+          manualOption: 'Manual',
+          refresh: 'Refresh',
+          retry: 'Retry',
+          tabOverview: 'Overview',
+          tabTokens: 'Tokens & Velocity',
+          tabModels: 'Model Registry',
+          tabSteps: 'Config & Steps',
+          tkE2ETitle: 'End-to-End Velocity',
+          tkTotalTitle: 'Cumulative Tokens',
+          tkMixTitle: 'Token Composition',
+          tkInputMixDesc: 'Input Mix · Cache Read vs Fresh Input',
+          tkOutputMixDesc: 'Output Mix · Thinking vs Response',
+          tkValidListTitle: 'Valid Step Requests',
+          mdDiscoveredTitle: 'Discovered Models',
+          unitModels: 'models',
+          mdGlobalCallsTitle: 'Total Global Calls',
+          mdGlobalCallsMeta: 'Trajectory Aggregation',
+          unitCalls: 'calls',
+          mdRegistryTableTitle: 'Local Model Registry',
+          stAutoCompactTitle: 'Auto-Compact Policy',
+          stContextWinTitle: 'Context Window Limit',
+          stStepsLogTitle: 'Step Telemetry Log',
+          studioLayoutsTitle: '20 Overview Layouts (L01 - L20)',
+          studioIconsTitle: '20 Pure Vector SVG Icons (I01 - I20)',
+          studioColorsTitle: '20 Color Palettes (C01 - C20)',
+          thStep: 'Step',
+          thModelEndpoint: 'Model & Endpoint',
+          thCacheOutput: 'Cache / Output',
+          thE2EVelocity: 'E2E Velocity',
+          thDisplayName: 'Display Name',
+          thEndpointId: 'Endpoint ID',
+          thCallsWindow: 'Calls / Window',
+          thOutputTtft: 'Output / TTFT',
+          noValidSamples: 'No valid throughput samples yet',
+          noModelsInSession: 'No model records in this session',
+          ovLatestVelocity: 'Latest E2E Velocity',
+          ovContextWindow: 'Context Window',
+          ovCurrentContextWindow: 'Session Context Window',
+          ovRecentTrend: 'Recent E2E Velocity Trend',
+          ovModelsTitle: 'Model Display Name & Endpoint ID',
+          ovE2EVelocity: 'End-to-End Velocity',
+          ovLatestStepOutput: 'Latest Step Output',
+          ovPrimaryModelFocus: 'Primary Model Focus',
+          ovDenseMatrix: 'Dense Terminal Matrix',
+          ovHorizScale: 'Horizontal Proportional Scale',
+          ovModelVersus: 'Multi-Model Comparison',
+          ovWaterfall: 'Request Lifecycle Waterfall',
+          ovStep1Input: '1. Context Usage',
+          ovStep2Ttft: '2. Time to First Token',
+          ovStep3E2E: '3. E2E Velocity',
+          ovCacheHitGauge: 'Cache Hit Rate',
+          defaultOn: 'Default On',
+          defaultVal: 'Default',
+          unsetDefaultPolicy: 'Unset (Default Auto-Compact)',
+          processEnvSource: 'Process Environment (process.env)',
+          shellProfileSource: (file) => `Shell Profile (${file})`,
+          overridden: 'Overridden',
+          notOverridden: 'Default',
+          untitledSession: (shortId) => `Session ${shortId}`,
+          fmtReqsCache: (reqs, cachePct) => `${reqs} reqs · Cache ${cachePct}`,
+          fmtModelsCount: (n) => `${n} ${n === 1 ? 'model' : 'models'}`,
+          fmtLast5Ttft: (r5, ttft) => `Last 5: ${r5} · TTFT ${ttft}`,
+          fmtLast5TokS: (r5, ttft) => `Last 5: ${r5} tok/s · TTFT ${ttft}`,
+          fmtSessionAvg: (avg) => `Session Avg ${avg} tok/s`,
+          fmtSessionAvgPeak: (avg, peak) => `Avg ${avg} · Peak ${peak} tok/s`,
+          fmtAvailableCompact: (avail, compact) => `Free ${avail} · Compact: ${compact}`,
+          fmtAvailable: (avail) => `Available ${avail}`,
+          fmtCompactLimit: (ac, lim) => `Auto-Compact: ${ac} · Limit ${lim}`,
+          fmtValidSamples: (n) => `${n} valid samples`,
+          fmtLatestLast5: (lat, r5) => `Latest ${lat} · Last 5: ${r5} tok/s`,
+          fmtCacheHit: (pct) => `Cache Hit ${pct}`,
+          fmtTotalInOut: (inp, out) => `Input ${inp} · Output ${out}`,
+          fmtReqsRetries: (reqs, retries) => `${reqs} requests · ${retries} retries`,
+          fmtThinkRespMix: (think, pct, resp) => `Think ${think} (${pct}%) / Resp ${resp}`,
+          fmtValidReqsCount: (n) => `${n} valid requests`,
+          fmtCacheShort: (c) => `Cache ${c}`,
+          fmtTtftShort: (t) => `TTFT ${t}`,
+          fmtAcrossSessions: (n) => `Across ${n} sessions`,
+          fmtPrimaryModel: (m) => `Primary: ${m}`,
+          fmtPrimaryEndpoint: (e) => `Endpoint: ${e}`,
+          fmtAcrossSessionsCalls: (s, c) => `Across ${s} sessions · ${c} calls`,
+          fmtCallsCount: (c) => `${c} calls`,
+          fmtWinShort: (w) => `Win ${w}`,
+          fmtOutShort: (o) => `Out ${o}`,
+          fmtMaxStepOut: (maxOut, status) => `Max Output ${maxOut} · ${status}`,
+          fmtStepsCount: (n) => `${n} steps`,
+          fmtRetryBadge: (r) => `Retry x${r}`,
+          fmtThinkRespShort: (t, r) => `T ${t} / R ${r}`,
+        },
+        'zh-CN': {
+          brandTooltip: '点击切换 20×20×20 外观组合',
+          selectConvTooltip: '选择会话',
+          pollTooltip: '刷新周期',
+          langTooltip: '切换语言 (简体中文 / English)',
+          langToggleLabel: 'EN',
+          manualOption: '手动',
+          refresh: '刷新',
+          retry: '重试',
+          tabOverview: '概览',
+          tabTokens: '速率与Token',
+          tabModels: '模型字典',
+          tabSteps: '配置与步骤',
+          tkE2ETitle: '端到端有效速率',
+          tkTotalTitle: '累计 Token 消耗',
+          tkMixTitle: 'Token 构成比例',
+          tkInputMixDesc: '输入构成 · 缓存读取 vs 新增输入',
+          tkOutputMixDesc: '输出构成 · 思考推理 vs 正式回复',
+          tkValidListTitle: '单步有效请求明细',
+          mdDiscoveredTitle: '已识别模型总数',
+          unitModels: '个模型',
+          mdGlobalCallsTitle: '全量会话累计调用',
+          mdGlobalCallsMeta: '真实轨迹聚合',
+          unitCalls: '次',
+          mdRegistryTableTitle: '本机全量模型字典',
+          stAutoCompactTitle: '自动压缩配置',
+          stContextWinTitle: '上下文窗口上限',
+          stStepsLogTitle: '单步请求明细',
+          studioLayoutsTitle: '20 种概览布局方案 (Layouts L01 - L20)',
+          studioIconsTitle: '20 种矢量图标方案 (SVG Icons I01 - I20)',
+          studioColorsTitle: '20 种色彩配方案 (Color Palettes C01 - C20)',
+          thStep: '步骤',
+          thModelEndpoint: '可读模型与底层端点',
+          thCacheOutput: '缓存 / 输出',
+          thE2EVelocity: '端到端速率',
+          thDisplayName: '可读名称',
+          thEndpointId: '底层端点标识',
+          thCallsWindow: '调用 / 窗口',
+          thOutputTtft: '产出 / 首字',
+          noValidSamples: '暂无有效请求速率样本',
+          noModelsInSession: '当前会话暂无模型记录',
+          ovLatestVelocity: '最新有效请求速率',
+          ovContextWindow: '上下文窗口水位',
+          ovCurrentContextWindow: '当前会话上下文窗口水位',
+          ovRecentTrend: '近期有效请求速率趋势',
+          ovModelsTitle: '模型可读名称与底层端点标识',
+          ovE2EVelocity: '端到端有效速率',
+          ovLatestStepOutput: '最新单步产出',
+          ovPrimaryModelFocus: '当前主模型焦点卡片',
+          ovDenseMatrix: '高密终端矩阵',
+          ovHorizScale: '水平比例标尺视图',
+          ovModelVersus: '会话多模型并列对决',
+          ovWaterfall: '请求生命周期瀑布流',
+          ovStep1Input: '1. 输入上下文水位',
+          ovStep2Ttft: '2. 首字耗时 (TTFT)',
+          ovStep3E2E: '3. 端到端速率',
+          ovCacheHitGauge: '缓存命中率',
+          defaultOn: '默认开启',
+          defaultVal: '默认',
+          unsetDefaultPolicy: '未设置 (默认自动压缩策略)',
+          processEnvSource: '进程环境变量 (process.env)',
+          shellProfileSource: (file) => `Shell 配置文件 (${file})`,
+          overridden: '已覆写',
+          notOverridden: '未覆写',
+          untitledSession: (shortId) => `会话 ${shortId}`,
+          fmtReqsCache: (reqs, cachePct) => `${reqs} 次请求 · 缓存 ${cachePct}`,
+          fmtModelsCount: (n) => `${n} 个模型`,
+          fmtLast5Ttft: (r5, ttft) => `近 5 次 ${r5} · 首字 ${ttft}`,
+          fmtLast5TokS: (r5, ttft) => `近 5 次 ${r5} tok/s · 首字 ${ttft}`,
+          fmtSessionAvg: (avg) => `会话均值 ${avg} tok/s`,
+          fmtSessionAvgPeak: (avg, peak) => `会话均值 ${avg} · 峰值 ${peak} tok/s`,
+          fmtAvailableCompact: (avail, compact) => `剩余可用 ${avail} · 压缩 ${compact}`,
+          fmtAvailable: (avail) => `剩余可用 ${avail}`,
+          fmtCompactLimit: (ac, lim) => `自动压缩 ${ac} · 上限 ${lim}`,
+          fmtValidSamples: (n) => `有效样本 ${n} 次`,
+          fmtLatestLast5: (lat, r5) => `最新 ${lat} · 近 5 次 ${r5} tok/s`,
+          fmtCacheHit: (pct) => `缓存命中 ${pct}`,
+          fmtTotalInOut: (inp, out) => `总输入 ${inp} · 总输出 ${out}`,
+          fmtReqsRetries: (reqs, retries) => `${reqs} 次请求 · 重试 ${retries} 次`,
+          fmtThinkRespMix: (think, pct, resp) => `思考 ${think} (${pct}%) / 回复 ${resp}`,
+          fmtValidReqsCount: (n) => `共 ${n} 条有效请求`,
+          fmtCacheShort: (c) => `缓存 ${c}`,
+          fmtTtftShort: (t) => `首字 ${t}`,
+          fmtAcrossSessions: (n) => `跨 ${n} 个会话`,
+          fmtPrimaryModel: (m) => `主力模型 ${m}`,
+          fmtPrimaryEndpoint: (e) => `主力端点 ${e}`,
+          fmtAcrossSessionsCalls: (s, c) => `跨 ${s} 个会话 · ${c} 次调用`,
+          fmtCallsCount: (c) => `${c} 次`,
+          fmtWinShort: (w) => `窗口 ${w}`,
+          fmtOutShort: (o) => `产出 ${o}`,
+          fmtMaxStepOut: (maxOut, status) => `单步最大输出 ${maxOut} · ${status}`,
+          fmtStepsCount: (n) => `共 ${n} 步`,
+          fmtRetryBadge: (r) => `重试x${r}`,
+          fmtThinkRespShort: (t, r) => `思 ${t} / 回 ${r}`,
+        },
+      };
+
+      // 1. 20 Layouts Definition
+      const LAYOUT_PRESETS = [
+        { id: 'L01', nameZh: '经典三段栈式', nameEn: 'Classic Stack', mode: 'stack-classic' },
+        { id: 'L02', nameZh: '双极圆环仪表', nameEn: 'Dual Gauges', mode: 'dual-gauge' },
+        { id: 'L03', nameZh: '英雄速率置顶', nameEn: 'Hero Velocity', mode: 'hero-velocity' },
+        { id: 'L04', nameZh: '模型矩阵置顶', nameEn: 'Models First', mode: 'model-first' },
+        { id: 'L05', nameZh: '左右分栏驾驶舱', nameEn: 'Split Cockpit', mode: 'split-cockpit' },
+        { id: 'L06', nameZh: '四象限魔方格', nameEn: 'Bento Grid', mode: 'bento-2x2' },
+        { id: 'L07', nameZh: '瑞士极简大字报', nameEn: 'Swiss Typo', mode: 'swiss-typo' },
+        { id: 'L08', nameZh: '脉冲序列中心', nameEn: 'Pulse Center', mode: 'pulse-center' },
+        { id: 'L09', nameZh: '高密终端单表', nameEn: 'Dense Matrix', mode: 'dense-matrix' },
+        { id: 'L10', nameZh: '双同心环核心', nameEn: 'Radial Core', mode: 'radial-core' },
+        { id: 'L11', nameZh: '水平比例标尺', nameEn: 'Horiz Scale', mode: 'horiz-bars' },
+        { id: 'L12', nameZh: '顶带配巨幅趋势', nameEn: 'Ribbon Chart', mode: 'ribbon-chart' },
+        { id: 'L13', nameZh: '多模型并列对决', nameEn: 'Model Versus', mode: 'model-versus' },
+        { id: 'L14', nameZh: '生命周期瀑布流', nameEn: 'Waterfall', mode: 'waterfall' },
+        { id: 'L15', nameZh: '底部拇指导航栏', nameEn: 'Bottom Dock', mode: 'bottom-dock' },
+        { id: 'L16', nameZh: '侧边垂直导航栏', nameEn: 'Side Nav', mode: 'side-nav' },
+        { id: 'L17', nameZh: '平滑面积趋势图', nameEn: 'Area Spark', mode: 'area-spark' },
+        { id: 'L18', nameZh: '20段LED格栅表', nameEn: 'LED Segments', mode: 'led-segments' },
+        { id: 'L19', nameZh: '主模型焦点放大', nameEn: 'Focus Hero', mode: 'focus-hero' },
+        { id: 'L20', nameZh: '极客精密刻度屏', nameEn: 'HUD Console', mode: 'hud-console' },
+      ];
+
+      // 2. 20 Pure Vector SVG Icons
+      const ICON_PRESETS = [
+        { id: 'I01', nameZh: '三柱律动框', nameEn: 'Pulse Bars', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="12" height="12" rx="2.5"/><path d="M5 11V7.5M8 11V5M11 11V8.5" stroke-linecap="round"/></svg>' },
+        { id: 'I02', nameZh: '速率仪表盘', nameEn: 'Tachometer', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 11.5a6 6 0 1 1 11 0" stroke-linecap="round"/><path d="M8 9l3.2-3.2" stroke-linecap="round"/><circle cx="8" cy="9" r="1.2" fill="currentColor"/></svg>' },
+        { id: 'I03', nameZh: '双环轨道核', nameEn: 'Dual Orbit', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><ellipse cx="8" cy="8" rx="6.5" ry="2.8" transform="rotate(-30 8 8)"/><ellipse cx="8" cy="8" rx="6.5" ry="2.8" transform="rotate(30 8 8)"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></svg>' },
+        { id: 'I04', nameZh: '闪电波形图', nameEn: 'Wave Spark', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 8h2.8l1.8-4.5 3.2 9 2.1-4.5h3.1" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+        { id: 'I05', nameZh: '六边算力核', nameEn: 'Hex Core', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="8,1.6 13.6,4.8 13.6,11.2 8,14.4 2.4,11.2 2.4,4.8"/><path d="M8 8v6.4M8 8l5.6-3.2M8 8L2.4 4.8"/></svg>' },
+        { id: 'I06', nameZh: '棱镜分光束', nameEn: 'Prism Beam', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="6.5,2.5 1.8,12.5 11.2,12.5"/><path d="M9.5 6.5h4.7M10.2 8.8h4M10.9 11h3.3" stroke-linecap="round"/></svg>' },
+        { id: 'I07', nameZh: '雷达扫描盘', nameEn: 'Radar Scan', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2.5"/><path d="M8 8l4.2-4.2" stroke-linecap="round"/></svg>' },
+        { id: 'I08', nameZh: '堆叠晶圆层', nameEn: 'Wafer Stack', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="8,2 14,5 8,8 2,5"/><path d="M2 8l6 3 6-3M2 11l6 3 6-3" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+        { id: 'I09', nameZh: '几何光圈叶', nameEn: 'Aperture', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M9.5 2.2L6.2 7.8M13.5 6L7.2 6.2M12 12.5L8.2 6.8M5 13.5l3.2-5.2M2.2 8.8l5.8.2"/></svg>' },
+        { id: 'I10', nameZh: '矩阵九宫点', nameEn: 'Dot Matrix', svg: '<svg viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="3.5" r="1.3"/><circle cx="8" cy="3.5" r="1.3"/><circle cx="12.5" cy="3.5" r="1.3"/><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/><circle cx="3.5" cy="12.5" r="1.3"/><circle cx="8" cy="12.5" r="1.3"/><circle cx="12.5" cy="12.5" r="1.3"/><path d="M3.5 12.5L8 8l4.5-4.5" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>' },
+        { id: 'I11', nameZh: '沙漏吞吐仪', nameEn: 'Hourglass', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 2h9M3.5 14h9M4.2 2c0 3.5 3.8 4.2 3.8 6s-3.8 2.5-3.8 6M11.8 2c0 3.5-3.8 4.2-3.8 6s3.8 2.5 3.8 6" stroke-linecap="round"/></svg>' },
+        { id: 'I12', nameZh: '莫比乌斯环', nameEn: 'Mobius Loop', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5.2 5.5C3.2 5.5 1.8 6.6 1.8 8s1.4 2.5 3.4 2.5c2.8 0 3.8-5 6.6-5 1.8 0 2.4 1.1 2.4 2.5s-.6 2.5-2.4 2.5c-2.8 0-3.8-5-6.6-5z"/></svg>' },
+        { id: 'I13', nameZh: '谐振音叉波', nameEn: 'Resonator', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.5 2.5v4.5a2.5 2.5 0 0 0 5 0V2.5M8 9.5v4" stroke-linecap="round"/><path d="M2.5 4.5a5 5 0 0 0 0 5M13.5 4.5a5 5 0 0 1 0 5" stroke-linecap="round"/></svg>' },
+        { id: 'I14', nameZh: '精密罗盘针', nameEn: 'Compass', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><polygon points="6.6,6.6 11.2,4.8 9.4,9.4 4.8,11.2"/></svg>' },
+        { id: 'I15', nameZh: '神经元拓扑', nameEn: 'Neural Mesh', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="3" cy="4" r="1.5"/><circle cx="3" cy="12" r="1.5"/><circle cx="8" cy="8" r="1.6"/><circle cx="13" cy="5" r="1.5"/><circle cx="13" cy="11" r="1.5"/><path d="M4.4 4.8L6.6 7M4.4 11.2L6.6 9M9.5 7.2l2.1-1.4M9.5 8.8l2.1 1.4"/></svg>' },
+        { id: 'I16', nameZh: '双相正弦波', nameEn: 'Sine Wave', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.8" y="2.5" width="12.4" height="11" rx="2"/><path d="M3 8c1.6-3.5 3.4-3.5 5 0s3.4 3.5 5 0" stroke-linecap="round"/></svg>' },
+        { id: 'I17', nameZh: '透视立方核', nameEn: 'Cube Core', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><polygon points="8,1.8 13.5,5 13.5,11 8,14.2 2.5,11 2.5,5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>' },
+        { id: 'I18', nameZh: '矢量推进器', nameEn: 'Thruster', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2c2.5 2 3.5 5 3.5 8H4.5C4.5 7 5.5 4 8 2z"/><path d="M5.5 12.5v2M8 12v2.5M10.5 12.5v2" stroke-linecap="round"/></svg>' },
+        { id: 'I19', nameZh: '对称天平仪', nameEn: 'Balance', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v11M4 13.5h8M3 5.5h10" stroke-linecap="round"/><polygon points="3,5.5 1.5,9.5 4.5,9.5"/><polygon points="13,5.5 11.5,9.5 14.5,9.5"/></svg>' },
+        { id: 'I20', nameZh: '五阶频谱柱', nameEn: 'Spectrum 5', svg: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 13V9M5.2 13V6M8 13V3M10.8 13V7M13.5 13V10" stroke-linecap="round"/></svg>' },
+      ];
+
+      // 3. 20 Color Palettes
+      const COLOR_PRESETS = [
+        { id: 'C01', nameZh: '果味冷白', nameEn: 'Cupertino White', canvas: '#FFFFFF', surface: '#F5F5F7', elevated: '#E8E8ED', text1: '#1D1D1F', text2: '#515154', text3: '#86868B', bar1: '#1D1D1F', bar2: '#86868B' },
+        { id: 'C02', nameZh: '电光钴蓝', nameEn: 'Electric Cobalt', canvas: '#F8FAFC', surface: '#EFF6FF', elevated: '#DBEAFE', text1: '#0F172A', text2: '#334155', text3: '#64748B', bar1: '#2563EB', bar2: '#93C5FD' },
+        { id: 'C03', nameZh: '翡翠森林', nameEn: 'Emerald Forest', canvas: '#F8FAF9', surface: '#ECFDF5', elevated: '#D1FAE5', text1: '#064E3B', text2: '#047857', text3: '#6B7280', bar1: '#059669', bar2: '#6EE7B7' },
+        { id: 'C04', nameZh: '琥珀暖金', nameEn: 'Warm Amber', canvas: '#FFFDF9', surface: '#FEF3C7', elevated: '#FDE68A', text1: '#451A03', text2: '#78350F', text3: '#92400E', bar1: '#D97706', bar2: '#F59E0B' },
+        { id: 'C05', nameZh: '极光紫罗', nameEn: 'Aurora Violet', canvas: '#FAF8FF', surface: '#F3E8FF', elevated: '#E9D5FF', text1: '#2E1065', text2: '#5B21B6', text3: '#7C3AED', bar1: '#7C3AED', bar2: '#C084FC' },
+        { id: 'C06', nameZh: '珊瑚绯红', nameEn: 'Coral Crimson', canvas: '#FFFBFB', surface: '#FFE4E6', elevated: '#FECDD3', text1: '#4C0519', text2: '#881337', text3: '#9F1239', bar1: '#E11D48', bar2: '#FB7185' },
+        { id: 'C07', nameZh: '青空湖蓝', nameEn: 'Cyan Lagoon', canvas: '#F7FEFF', surface: '#ECFEFF', elevated: '#CFFAFE', text1: '#083344', text2: '#155E75', text3: '#0E7490', bar1: '#0891B2', bar2: '#67E8F9' },
+        { id: 'C08', nameZh: '石墨板岩', nameEn: 'Graphite Slate', canvas: '#F8FAFC', surface: '#F1F5F9', elevated: '#E2E8F0', text1: '#0F172A', text2: '#475569', text3: '#64748B', bar1: '#334155', bar2: '#94A3B8' },
+        { id: 'C09', nameZh: '宣纸水墨', nameEn: 'Rice Paper Ink', canvas: '#FBF9F5', surface: '#F2EFE9', elevated: '#E6E1D6', text1: '#262421', text2: '#57534E', text3: '#78716C', bar1: '#44403C', bar2: '#A8A29E' },
+        { id: 'C10', nameZh: '靛青深海', nameEn: 'Deep Indigo', canvas: '#F8F9FF', surface: '#EEF2FF', elevated: '#E0E7FF', text1: '#1E1B4B', text2: '#3730A3', text3: '#6366F1', bar1: '#4F46E5', bar2: '#A5B4FC' },
+        { id: 'C11', nameZh: '抹茶青苔', nameEn: 'Matcha Moss', canvas: '#F9FBF7', surface: '#ECFCCB', elevated: '#D9F99D', text1: '#1A2E05', text2: '#3F6212', text3: '#4D7C0F', bar1: '#65A30D', bar2: '#A3E635' },
+        { id: 'C12', nameZh: '钛金工业', nameEn: 'Titanium Zinc', canvas: '#F4F4F5', surface: '#E4E4E7', elevated: '#D4D4D8', text1: '#18181B', text2: '#3F3F46', text3: '#71717A', bar1: '#27272A', bar2: '#A1A1AA' },
+        { id: 'C13', nameZh: '洋红脉冲', nameEn: 'Fuchsia Pulse', canvas: '#FDF8FF', surface: '#FAE8FF', elevated: '#F5D0FE', text1: '#4A044E', text2: '#701A75', text3: '#86198F', bar1: '#C026D3', bar2: '#E879F9' },
+        { id: 'C14', nameZh: '北欧冰川', nameEn: 'Nordic Glacier', canvas: '#ECEFF4', surface: '#E5E9F0', elevated: '#D8DEE9', text1: '#2E3440', text2: '#4C566A', text3: '#616E88', bar1: '#5E81AC', bar2: '#88C0D0' },
+        { id: 'C15', nameZh: '摩卡浓缩', nameEn: 'Mocha Espresso', canvas: '#FAF7F5', surface: '#F0EAE4', elevated: '#E3D8CE', text1: '#2C1E16', text2: '#5C4033', text3: '#8B6B58', bar1: '#78350F', bar2: '#D97706' },
+        { id: 'C16', nameZh: '薄荷青柠', nameEn: 'Mint Teal', canvas: '#F6FEF9', surface: '#CCFBF1', elevated: '#99F6E4', text1: '#134E4A', text2: '#115E59', text3: '#0F766E', bar1: '#0D9488', bar2: '#5EEAD4' },
+        { id: 'C17', nameZh: '皇家蓝宝', nameEn: 'Royal Sapphire', canvas: '#F7F9FC', surface: '#EBF1F8', elevated: '#D6E4F0', text1: '#0A192F', text2: '#1E3A8A', text3: '#3B82F6', bar1: '#1D4ED8', bar2: '#60A5FA' },
+        { id: 'C18', nameZh: '暗夜黑曜', nameEn: 'Obsidian Dark', canvas: '#09090B', surface: '#18181B', elevated: '#27272A', text1: '#FAFAFA', text2: '#A1A1AA', text3: '#71717A', bar1: '#38BDF8', bar2: '#64748B' },
+        { id: 'C19', nameZh: '深空矩阵', nameEn: 'Matrix Cyber', canvas: '#050B07', surface: '#0D1B12', elevated: '#14291B', text1: '#ECFDF5', text2: '#6EE7B7', text3: '#34D399', bar1: '#10B981', bar2: '#047857' },
+        { id: 'C20', nameZh: '午夜星云', nameEn: 'Midnight Nebula', canvas: '#0B0914', surface: '#161224', elevated: '#251E3B', text1: '#F5F3FF', text2: '#C4B5FD', text3: '#8B5CF6', bar1: '#A78BFA', bar2: '#6D28D9' },
+      ];
+
+      function normalizeLangCode(raw) {
+        if (!raw || typeof raw !== 'string') return '';
+        const lower = raw.trim().toLowerCase();
+        if (lower.startsWith('zh')) return 'zh-CN';
+        if (lower.startsWith('en')) return 'en';
+        return '';
+      }
+
+      function detectInitialLang(savedLang, urlLang) {
+        const fromUrl = normalizeLangCode(urlLang);
+        if (fromUrl) return fromUrl;
+        const fromSaved = normalizeLangCode(savedLang);
+        if (fromSaved) return fromSaved;
+        if (window.sidecar && window.sidecar.locale) {
+          const fromSidecar = normalizeLangCode(window.sidecar.locale);
+          if (fromSidecar) return fromSidecar;
+        }
+        const navCandidates = Array.isArray(navigator.languages) && navigator.languages.length > 0
+          ? navigator.languages
+          : [navigator.language || 'en'];
+        for (const cand of navCandidates) {
+          const norm = normalizeLangCode(cand);
+          if (norm) return norm;
+        }
+        return 'en';
+      }
+
+      const savedPrefs = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('agy_telemetry_studio_v1') || '{}');
+        } catch {
+          return {};
+        }
+      })();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const state = {
+        selectedConversationId: urlParams.get('conversationId') || (window.sidecar && window.sidecar.conversationId) || '',
+        pollTimer: null,
+        pollIntervalMs: 10000,
+        activeTab: urlParams.get('tab') || 'overview',
+        layoutId: urlParams.get('layout') || savedPrefs.layoutId || 'L06',
+        iconId: urlParams.get('icon') || savedPrefs.iconId || 'I20',
+        colorId: urlParams.get('color') || savedPrefs.colorId || 'C01',
+        lang: detectInitialLang(savedPrefs.lang, urlParams.get('lang')),
+        userExplicitLang: Boolean(urlParams.get('lang') || savedPrefs.lang),
+        lastTelemetry: null,
+      };
+
+      function t(key) {
+        const dict = I18N[state.lang] || I18N.en;
+        return dict[key] !== undefined ? dict[key] : I18N.en[key];
+      }
+
+      function itemName(obj) {
+        return state.lang === 'zh-CN' ? obj.nameZh : obj.nameEn;
+      }
+
+      const fmtInt = (n) => {
+        const val = Number(n);
+        return Number.isFinite(val) ? Math.round(val).toLocaleString('en-US') : '0';
+      };
+
+      const fmtCompact = (n) => {
+        const val = Number(n);
+        if (!Number.isFinite(val)) return '0';
+        if (val >= 1e6) return (val / 1e6).toFixed(2) + 'M';
+        if (val >= 1e3) return (val / 1e3).toFixed(1) + 'k';
+        return Math.round(val).toLocaleString('en-US');
+      };
+
+      const fmtRate = (n) => {
+        const val = Number(n);
+        return Number.isFinite(val) && val > 0 ? val.toFixed(1) : '-';
+      };
+
+      const fmtSec = (n) => {
+        const val = Number(n);
+        return Number.isFinite(val) && val > 0 ? val.toFixed(2) + 's' : '-';
+      };
+
+      const fmtPct = (ratio) => {
+        const val = Number(ratio);
+        return Number.isFinite(val) ? (val * 100).toFixed(1) + '%' : '0.0%';
+      };
+
+      const escapeHtml = (str) =>
+        String(str ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+
+      function saveStudioPrefs() {
+        try {
+          localStorage.setItem(
+            'agy_telemetry_studio_v1',
+            JSON.stringify({
+              layoutId: state.layoutId,
+              iconId: state.iconId,
+              colorId: state.colorId,
+              lang: state.userExplicitLang ? state.lang : '',
+            })
+          );
+          const langParam = state.userExplicitLang ? `&lang=${encodeURIComponent(state.lang)}` : '';
+          fetch(`/api/theme?layoutId=${encodeURIComponent(state.layoutId)}&iconId=${encodeURIComponent(state.iconId)}&colorId=${encodeURIComponent(state.colorId)}${langParam}`).catch(() => {});
+        } catch {}
+      }
+
+      function applyI18nStaticLabels() {
+        document.documentElement.lang = state.lang;
+        document.getElementById('brandBadgeBtn').title = t('brandTooltip');
+        document.getElementById('conversationSelect').title = t('selectConvTooltip');
+        document.getElementById('pollIntervalSelect').title = t('pollTooltip');
+        document.getElementById('pollManualOption').textContent = t('manualOption');
+        const langBtn = document.getElementById('langToggleBtn');
+        langBtn.textContent = t('langToggleLabel');
+        langBtn.title = t('langTooltip');
+
+        if (!state.lastTelemetry) {
+          document.getElementById('statusTimestamp').textContent = t('refresh');
+        }
+
+        document.querySelectorAll('[data-i18n]').forEach((el) => {
+          const key = el.getAttribute('data-i18n');
+          const val = t(key);
+          if (typeof val === 'string') {
+            el.textContent = val;
+          }
+        });
+
+        initStudioPickers();
+        applyStudioTheme();
+        if (state.lastTelemetry) {
+          renderTelemetry(state.lastTelemetry);
+        }
+      }
+
+      function applyStudioTheme() {
+        const layoutObj = LAYOUT_PRESETS.find((x) => x.id === state.layoutId) || LAYOUT_PRESETS[0];
+        const iconObj = ICON_PRESETS.find((x) => x.id === state.iconId) || ICON_PRESETS[0];
+        const colorObj = COLOR_PRESETS.find((x) => x.id === state.colorId) || COLOR_PRESETS[0];
+
+        const root = document.documentElement;
+        root.style.setProperty('--bg-canvas', colorObj.canvas);
+        root.style.setProperty('--bg-surface', colorObj.surface);
+        root.style.setProperty('--bg-elevated', colorObj.elevated);
+        root.style.setProperty('--text-primary', colorObj.text1);
+        root.style.setProperty('--text-secondary', colorObj.text2);
+        root.style.setProperty('--text-tertiary', colorObj.text3);
+        root.style.setProperty('--bar-primary', colorObj.bar1);
+        root.style.setProperty('--bar-secondary', colorObj.bar2);
+
+        const shell = document.getElementById('appShell');
+        shell.className = `app-shell layout-${layoutObj.id}`;
+
+        document.getElementById('brandIconSlot').innerHTML = iconObj.svg;
+        document.getElementById('presetCodeLabel').textContent = `${layoutObj.id}·${iconObj.id}·${colorObj.id}`;
+
+        document.getElementById('activeLayoutName').textContent = `${layoutObj.id} ${itemName(layoutObj)}`;
+        document.getElementById('activeIconName').textContent = `${iconObj.id} ${itemName(iconObj)}`;
+        document.getElementById('activeColorName').textContent = `${colorObj.id} ${itemName(colorObj)}`;
+
+        document.querySelectorAll('#layoutPickerGrid .studio-chip').forEach((el) => {
+          el.classList.toggle('active', el.dataset.id === layoutObj.id);
+        });
+        document.querySelectorAll('#iconPickerGrid .studio-chip').forEach((el) => {
+          el.classList.toggle('active', el.dataset.id === iconObj.id);
+        });
+        document.querySelectorAll('#colorPickerGrid .studio-chip').forEach((el) => {
+          el.classList.toggle('active', el.dataset.id === colorObj.id);
+        });
+
+        if (state.lastTelemetry) {
+          renderOverviewStage(state.lastTelemetry);
+        }
+      }
+
+      function initStudioPickers() {
+        const lGrid = document.getElementById('layoutPickerGrid');
+        lGrid.innerHTML = LAYOUT_PRESETS.map((l) => {
+          const label = itemName(l);
+          const shortLabel = state.lang === 'zh-CN' ? label.slice(0, 4) : label.split(' ')[0];
+          return `<button type="button" class="studio-chip" data-id="${l.id}" title="${escapeHtml(label)}"><span class="mono">${l.id}</span><span>${escapeHtml(shortLabel)}</span></button>`;
+        }).join('');
+        lGrid.querySelectorAll('.studio-chip').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.layoutId = btn.dataset.id;
+            saveStudioPrefs();
+            applyStudioTheme();
+          });
+        });
+
+        const iGrid = document.getElementById('iconPickerGrid');
+        iGrid.innerHTML = ICON_PRESETS.map(
+          (i) => `<button type="button" class="studio-chip" data-id="${i.id}" title="${escapeHtml(itemName(i))}">${i.svg}<span class="mono">${i.id}</span></button>`
+        ).join('');
+        iGrid.querySelectorAll('.studio-chip').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.iconId = btn.dataset.id;
+            saveStudioPrefs();
+            applyStudioTheme();
+          });
+        });
+
+        const cGrid = document.getElementById('colorPickerGrid');
+        cGrid.innerHTML = COLOR_PRESETS.map((c) => {
+          const label = itemName(c);
+          const shortLabel = state.lang === 'zh-CN' ? label.slice(0, 2) : label.slice(0, 4);
+          return `<button type="button" class="studio-chip" data-id="${c.id}" title="${escapeHtml(label)}"><span class="swatch-dot" style="background:${c.bar1}"></span><span>${c.id} ${escapeHtml(shortLabel)}</span></button>`;
+        }).join('');
+        cGrid.querySelectorAll('.studio-chip').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.colorId = btn.dataset.id;
+            saveStudioPrefs();
+            applyStudioTheme();
+          });
+        });
+      }
+
+      function switchTab(tabId) {
+        state.activeTab = tabId;
+        document.querySelectorAll('.nav-tab').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.tab === tabId);
+        });
+        document.querySelectorAll('.tab-pane').forEach((pane) => {
+          pane.classList.toggle('active', pane.id === `pane-${tabId}`);
+        });
+      }
+
+      document.querySelectorAll('.nav-tab').forEach((btn) => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      document.getElementById('brandBadgeBtn').addEventListener('click', () => {
+        switchTab(state.activeTab === 'studio' ? 'overview' : 'studio');
+      });
+
+      document.getElementById('langToggleBtn').addEventListener('click', () => {
+        state.lang = state.lang === 'zh-CN' ? 'en' : 'zh-CN';
+        state.userExplicitLang = true;
+        saveStudioPrefs();
+        applyI18nStaticLabels();
+      });
+
+      async function apiFetch(url, payload) {
+        const params = new URLSearchParams();
+        if (payload && payload.conversationId) {
+          params.set('conversationId', payload.conversationId);
+        }
+        if (payload && payload.recentWindowSize) {
+          params.set('recentWindowSize', String(payload.recentWindowSize));
+        }
+        const query = params.toString();
+        const getUrl = query ? `${url}?${query}` : url;
+
+        const hasToken = Boolean(new URLSearchParams(window.location.search).get('token'));
+        if (hasToken && window.sidecar && typeof window.sidecar.fetch === 'function') {
+          const res = await window.sidecar.fetch(url, {
+            method: 'POST',
+            body: JSON.stringify(payload || {}),
+          });
+          if (res.ok) return res.json();
+        }
+
+        const res = await fetch(getUrl);
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      }
+
+      function renderConversationSelect(conversations, activeId) {
+        const select = document.getElementById('conversationSelect');
+        const list = Array.isArray(conversations) ? conversations : [];
+        select.innerHTML = '';
+
+        for (const conv of list) {
+          const opt = document.createElement('option');
+          opt.value = conv.conversationId;
+          const surfaceTag = conv.surfaceId === 'antigravity-cli' ? '[CLI]' : '[App]';
+          const shortId = conv.conversationId.slice(0, 8);
+          let title = conv.title || '';
+          if (title === `会话 ${shortId}`) {
+            title = t('untitledSession')(shortId);
+          }
+          opt.textContent = `${surfaceTag} ${title} (${shortId})`;
+          if (conv.conversationId === activeId) {
+            opt.selected = true;
+          }
+          select.appendChild(opt);
+        }
+      }
+
+      function buildDualBarSvg(stepRecords, maxBars, svgHeight, areaMode, customWidth) {
+        const validSteps = (Array.isArray(stepRecords) ? stepRecords : [])
+          .filter((s) => s.isValidThroughputSample && Number(s.e2eTokPerSec) > 0)
+          .slice(-maxBars);
+
+        if (validSteps.length === 0) {
+          return `<div class="subtle" style="padding:14px 0;text-align:center;">${escapeHtml(t('noValidSamples'))}</div>`;
+        }
+
+        const colorObj = COLOR_PRESETS.find((x) => x.id === state.colorId) || COLOR_PRESETS[0];
+        const maxRate = Math.max(
+          ...validSteps.map((s) => Number(s.e2eTokPerSec) || 0),
+          10
+        );
+
+        const svgWidth = customWidth || 540;
+        const padTop = 16;
+        const padBottom = 18;
+        const chartH = svgHeight - padTop - padBottom;
+        const slotW = svgWidth / validSteps.length;
+
+        if (areaMode && validSteps.length > 1) {
+          const ptsE2E = validSteps.map((s, i) => {
+            const x = i * slotW + slotW / 2;
+            const y = padTop + chartH - (s.e2eTokPerSec / maxRate) * chartH;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+          });
+          const firstX = (slotW / 2).toFixed(1);
+          const lastX = ((validSteps.length - 1) * slotW + slotW / 2).toFixed(1);
+          const baseY = (padTop + chartH).toFixed(1);
+          return `
+            <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="${svgHeight}" preserveAspectRatio="none">
+              <polygon points="${firstX},${baseY} ${ptsE2E.join(' ')} ${lastX},${baseY}" fill="${colorObj.bar1}" fill-opacity="0.16"/>
+              <polyline points="${ptsE2E.join(' ')}" fill="none" stroke="${colorObj.bar1}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          `;
+        }
+
+        const barW = Math.min(20, Math.max(8, slotW * 0.44));
+        let barsSvg = '';
+        validSteps.forEach((step, idx) => {
+          const xCenter = idx * slotW + slotW / 2;
+          const hE2E = Math.max(4, (step.e2eTokPerSec / maxRate) * chartH);
+          const yE2E = padTop + chartH - hE2E;
+          const stepLabel = `#${step.firstStepIndex}`;
+
+          barsSvg += `
+            <g>
+              <title>Step ${step.stepIndices.join(',')} | ${escapeHtml(step.modelDisplayName)} (${escapeHtml(step.responseModel)}): E2E ${step.e2eTokPerSec.toFixed(1)} tok/s · TTFT ${fmtSec(step.timeToFirstTokenSec)}</title>
+              <rect x="${(xCenter - barW / 2).toFixed(1)}" y="${yE2E.toFixed(1)}" width="${barW.toFixed(1)}" height="${hE2E.toFixed(1)}" rx="3.5" fill="${colorObj.bar1}" />
+              <text x="${xCenter.toFixed(1)}" y="${(yE2E - 3.5).toFixed(1)}" text-anchor="middle" font-family="var(--font-mono)" font-size="9.5" font-weight="600" fill="${colorObj.text2}">${Math.round(step.e2eTokPerSec)}</text>
+              <text x="${xCenter.toFixed(1)}" y="${svgHeight - 3}" text-anchor="middle" font-family="var(--font-mono)" font-size="9" fill="${colorObj.text3}">${stepLabel}</text>
+            </g>
+          `;
+        });
+
+        return `
+          <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="${svgHeight}" preserveAspectRatio="none">
+            ${barsSvg}
+          </svg>
+        `;
+      }
+
+      function buildSemiGaugeSvg(ratio, label, valueStr) {
+        const colorObj = COLOR_PRESETS.find((x) => x.id === state.colorId) || COLOR_PRESETS[0];
+        const clamped = Math.max(0, Math.min(1, Number(ratio) || 0));
+        const r = 34;
+        const circum = Math.PI * r;
+        const dash = (clamped * circum).toFixed(1);
+        return `
+          <svg viewBox="0 0 100 58" width="100%" height="58">
+            <path d="M 16 48 A 34 34 0 0 1 84 48" fill="none" stroke="${colorObj.elevated}" stroke-width="7" stroke-linecap="round"/>
+            <path d="M 16 48 A 34 34 0 0 1 84 48" fill="none" stroke="${colorObj.bar1}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${dash} ${circum.toFixed(1)}"/>
+            <text x="50" y="40" text-anchor="middle" font-family="var(--font-mono)" font-size="13" font-weight="700" fill="${colorObj.text1}">${escapeHtml(valueStr)}</text>
+            <text x="50" y="54" text-anchor="middle" font-size="8.5" fill="${colorObj.text3}">${escapeHtml(label)}</text>
+          </svg>
+        `;
+      }
+
+      function buildLedSegmentsHtml(ratio) {
+        const activeCount = Math.round(Math.max(0, Math.min(1, ratio)) * 20);
+        let segs = '';
+        for (let i = 0; i < 20; i++) {
+          const bg = i < activeCount ? 'var(--bar-primary)' : 'var(--bg-elevated)';
+          segs += `<span style="flex:1;height:9px;border-radius:2px;background:${bg}"></span>`;
+        }
+        return `<div style="display:flex;gap:2.5px;width:100%">${segs}</div>`;
+      }
+
+      function buildModelsCardsHtml(modelsUsed) {
+        if (!modelsUsed || modelsUsed.length === 0) {
+          return `<div class="subtle">${escapeHtml(t('noModelsInSession'))}</div>`;
+        }
+        return modelsUsed
+          .map((m) => {
+            const shortEnum = String(m.modelEnum || '').replace('MODEL_PLACEHOLDER_', '');
+            return `
+              <div class="model-row-card">
+                <div class="model-top-line">
+                  <span class="model-display-name">${escapeHtml(m.modelDisplayName)}</span>
+                  <span class="model-rate-tag">${fmtRate(m.weightedE2ETokPerSec)} <span class="kpi-unit">tok/s</span></span>
+                </div>
+                <div class="model-id-grid">
+                  <span class="endpoint-id mono">${escapeHtml(m.responseModel)} <span class="enum-id">· ${escapeHtml(shortEnum)}</span></span>
+                  <span class="subtle mono" style="white-space:nowrap">${escapeHtml(t('fmtReqsCache')(fmtInt(m.requestCount), fmtPct(m.cacheHitRate)))}</span>
+                </div>
+              </div>
+            `;
+          })
+          .join('');
+      }
+
+      function formatAutoCompactSource(ac) {
+        if (!ac) return '-';
+        if (ac.sourceType === 'process_env') return t('processEnvSource');
+        if (ac.sourceType === 'shell_profile') return t('shellProfileSource')(ac.sourceFile || 'shell');
+        return t('unsetDefaultPolicy');
+      }
+
+      function renderOverviewStage(data) {
+        const stage = document.getElementById('overviewDynamicStage');
+        const env = data.runtimeEnv || {};
+        const ac = env.autoCompactOverride || {};
+        const cwCfg = env.contextWindowConfig || {};
+        const cwState = data.contextWindowState || {};
+        const usedCtx = cwState.estimatedTokensUsed || 0;
+        const maxCtx = cwState.maxContextTokens || 0;
+        const ctxRatio = maxCtx > 0 ? Math.min(1, usedCtx / maxCtx) : 0;
+        const acVal = ac.value ?? ac.envValue ?? null;
+        const acShort = acVal !== null && acVal !== undefined ? acVal : t('defaultOn');
+
+        const tp = data.throughput || {};
+        const latest = tp.latest || null;
+        const recent = tp.recentWindow || {};
+        const overall = tp.sessionOverall || {};
+        const modelsUsed = Array.isArray(data.modelsUsed) ? data.modelsUsed : [];
+        const totalConvReq = Math.max(1, (data.tokenTotals && data.tokenTotals.totalRequests) || 1);
+
+        const contextBlock = `
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">${escapeHtml(t('ovCurrentContextWindow'))}</span>
+              <span class="card-meta">${maxCtx > 0 ? `${fmtCompact(usedCtx)} / ${fmtCompact(maxCtx)} (${fmtPct(ctxRatio)})` : `${fmtCompact(usedCtx)} tok`}</span>
+            </div>
+            ${state.layoutId === 'L18' ? buildLedSegmentsHtml(ctxRatio) : `<div class="gauge-track"><div class="gauge-fill" style="width:${(ctxRatio * 100).toFixed(1)}%"></div></div>`}
+            <div class="meta-strip">
+              <span>${escapeHtml(t('fmtAvailable')(maxCtx > 0 ? fmtCompact(cwState.remainingContextTokens) : '-'))}</span>
+              <span class="mono">${escapeHtml(t('fmtCompactLimit')(acShort, maxCtx > 0 ? fmtCompact(maxCtx) : (cwCfg.configuredValue || t('defaultVal'))))}</span>
+            </div>
+          </div>
+        `;
+
+        const isAreaChart = state.layoutId === 'L17' || state.layoutId === 'L08';
+        const chartHeight = state.layoutId === 'L12' ? 115 : 86;
+        const rateBlock = `
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">${escapeHtml(t('ovE2EVelocity'))}</span>
+              <span class="card-meta">${escapeHtml(t('fmtSessionAvg')(fmtRate(overall.weightedE2ETokPerSec)))}</span>
+            </div>
+            <div class="hero-kpi-grid">
+              <div class="kpi-box">
+                <span class="kpi-label">${escapeHtml(t('ovLatestVelocity'))}</span>
+                <div><span class="kpi-val">${fmtRate(latest?.e2eTokPerSec)}</span><span class="kpi-unit">tok/s</span></div>
+                <span class="kpi-sub">${escapeHtml(t('fmtLast5Ttft')(fmtRate(recent.weightedE2ETokPerSec), fmtSec(latest?.timeToFirstTokenSec)))}</span>
+              </div>
+              <div class="kpi-box">
+                <span class="kpi-label">${escapeHtml(t('ovLatestStepOutput'))}</span>
+                <div><span class="kpi-val">${latest ? fmtInt(latest.outputTokens) : '-'}</span><span class="kpi-unit">tok</span></div>
+                <span class="kpi-sub">${latest ? `Step #${latest.stepIndices?.[0] ?? '-'}` : escapeHtml(t('noValidSamples'))}</span>
+              </div>
+            </div>
+            <div>${buildDualBarSvg(data.stepRecords || [], 12, chartHeight, isAreaChart)}</div>
+          </div>
+        `;
+
+        const modelsBlock = `
+          <div class="card fill">
+            <div class="card-head">
+              <span class="card-title">${escapeHtml(t('ovModelsTitle'))}</span>
+              <span class="card-meta">${escapeHtml(t('fmtModelsCount')(modelsUsed.length))}</span>
+            </div>
+            <div class="scroll-area">${buildModelsCardsHtml(modelsUsed, totalConvReq)}</div>
+          </div>
+        `;
+
+        if (state.layoutId === 'L02') {
+          const e2eGaugeRatio = Math.min(1, (latest?.e2eTokPerSec || 0) / Math.max(overall.peakE2ETokPerSec || 100, 50));
+          stage.innerHTML = `
+            <div class="card">
+              <div class="stat-grid-2">
+                <div>${buildSemiGaugeSvg(ctxRatio, `${t('ovContextWindow')} ${fmtCompact(usedCtx)}/${fmtCompact(maxCtx)}`, fmtPct(ctxRatio))}</div>
+                <div>${buildSemiGaugeSvg(e2eGaugeRatio, t('fmtLast5Ttft')(fmtRate(recent.weightedE2ETokPerSec), fmtSec(latest?.timeToFirstTokenSec)), `${fmtRate(latest?.e2eTokPerSec)} tok/s`)}</div>
+              </div>
+            </div>
+            <div class="card">${buildDualBarSvg(data.stepRecords || [], 12, 82, false)}</div>
+            ${modelsBlock}
+          `;
+        } else if (state.layoutId === 'L03') {
+          stage.innerHTML = `${rateBlock}${contextBlock}${modelsBlock}`;
+        } else if (state.layoutId === 'L04') {
+          stage.innerHTML = `${modelsBlock}${rateBlock}${contextBlock}`;
+        } else if (state.layoutId === 'L05') {
+          stage.innerHTML = `
+            <div class="ov-split-lr">
+              <div class="card" style="justify-content:space-between">
+                <div>
+                  <div class="kpi-label">${escapeHtml(t('ovE2EVelocity'))}</div>
+                  <div class="kpi-val">${fmtRate(latest?.e2eTokPerSec)}<span class="kpi-unit">tok/s</span></div>
+                  <div class="kpi-sub">${escapeHtml(t('fmtLast5Ttft')(fmtRate(recent.weightedE2ETokPerSec), fmtSec(latest?.timeToFirstTokenSec)))}</div>
+                </div>
+                <div>
+                  <div class="kpi-label">${escapeHtml(t('ovContextWindow'))}</div>
+                  <div class="kpi-val">${fmtPct(ctxRatio)}</div>
+                  <div class="gauge-track" style="margin:6px 0"><div class="gauge-fill" style="width:${(ctxRatio * 100).toFixed(1)}%"></div></div>
+                  <div class="kpi-sub">${fmtCompact(usedCtx)} / ${fmtCompact(maxCtx)}</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden">
+                <div class="card">
+                  <div class="card-head"><span class="card-title">${escapeHtml(t('ovRecentTrend'))}</span></div>
+                  ${buildDualBarSvg(data.stepRecords || [], 10, 92, false)}
+                </div>
+                ${modelsBlock}
+              </div>
+            </div>
+          `;
+        } else if (state.layoutId === 'L06') {
+          const peakE2E = Math.max(overall.peakE2ETokPerSec || 0, latest?.e2eTokPerSec || 0, 1);
+          const e2eRatio = latest && latest.e2eTokPerSec > 0 ? Math.min(100, (latest.e2eTokPerSec / peakE2E) * 100) : 0;
+          stage.innerHTML = `
+            <div class="top-pair-grid">
+              <div class="card">
+                <div class="card-head">
+                  <span class="card-title">${escapeHtml(t('ovLatestVelocity'))}</span>
+                  <span class="card-meta">#${latest ? (latest.stepIndices?.[0] ?? '-') : '-'} · ${latest ? fmtInt(latest.outputTokens) + ' tok' : '-'}</span>
+                </div>
+                <div>
+                  <span class="kpi-val">${fmtRate(latest?.e2eTokPerSec)}</span><span class="kpi-unit">tok/s</span>
+                </div>
+                <div class="gauge-track"><div class="gauge-fill" style="width:${e2eRatio.toFixed(1)}%"></div></div>
+                <div class="kpi-sub">${escapeHtml(t('fmtLast5TokS')(fmtRate(recent.weightedE2ETokPerSec), fmtSec(latest?.timeToFirstTokenSec)))}</div>
+              </div>
+              <div class="card">
+                <div class="card-head">
+                  <span class="card-title">${escapeHtml(t('ovContextWindow'))}</span>
+                  <span class="card-meta">${fmtCompact(usedCtx)} / ${fmtCompact(maxCtx)}</span>
+                </div>
+                <div>
+                  <span class="kpi-val">${fmtPct(ctxRatio)}</span>
+                </div>
+                <div class="gauge-track"><div class="gauge-fill" style="width:${(ctxRatio * 100).toFixed(1)}%"></div></div>
+                <div class="kpi-sub">${escapeHtml(t('fmtAvailableCompact')(maxCtx > 0 ? fmtCompact(cwState.remainingContextTokens) : '-', acShort))}</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <span class="card-title">${escapeHtml(t('ovRecentTrend'))}</span>
+                <span class="card-meta">${escapeHtml(t('fmtSessionAvgPeak')(fmtRate(overall.weightedE2ETokPerSec), fmtRate(overall.peakE2ETokPerSec)))}</span>
+              </div>
+              <div>
+                ${buildDualBarSvg(data.stepRecords || [], 12, 84, false, 480)}
+              </div>
+            </div>
+            <div class="card fill">
+              <div class="card-head">
+                <span class="card-title">${escapeHtml(t('ovModelsTitle'))}</span>
+                <span class="card-meta">${escapeHtml(t('fmtModelsCount')(modelsUsed.length))}</span>
+              </div>
+              <div class="scroll-area">${buildModelsCardsHtml(modelsUsed, totalConvReq)}</div>
+            </div>
+          `;
+        } else if (state.layoutId === 'L07') {
+          const primaryModel = modelsUsed[0] || {};
+          stage.innerHTML = `
+            <div class="card">
+              <div class="kpi-label">${escapeHtml(t('ovModelsTitle'))}</div>
+              <div style="font-size:18px;font-weight:700">${escapeHtml(primaryModel.modelDisplayName || '-')}</div>
+              <div class="mono" style="font-size:12.5px;color:var(--bar-primary)">${escapeHtml(primaryModel.responseModel || '-')} · ${escapeHtml(primaryModel.modelEnum || '')}</div>
+            </div>
+            <div class="card">
+              <div class="stat-grid-2">
+                <div>
+                  <div class="kpi-label">END-TO-END TOK/S</div>
+                  <div class="kpi-val">${fmtRate(latest?.e2eTokPerSec)}</div>
+                  <div class="kpi-sub">${escapeHtml(t('fmtLast5Ttft')(fmtRate(recent.weightedE2ETokPerSec), fmtSec(latest?.timeToFirstTokenSec)))}</div>
+                </div>
+                <div>
+                  <div class="kpi-label">CONTEXT WINDOW</div>
+                  <div class="kpi-val">${fmtPct(ctxRatio)}</div>
+                  <div class="kpi-sub">${fmtCompact(usedCtx)} / ${fmtCompact(maxCtx)}</div>
+                </div>
+              </div>
+              ${buildDualBarSvg(data.stepRecords || [], 12, 82, false)}
+            </div>
+            ${modelsBlock}
+          `;
+        } else if (state.layoutId === 'L08') {
+          stage.innerHTML = `
+            <div class="card">
+              <div class="stat-grid-3">
+                <div class="kpi-box"><span class="kpi-label">${escapeHtml(t('ovLatestVelocity'))}</span><span class="kpi-val" style="font-size:22px">${fmtRate(latest?.e2eTokPerSec)}</span></div>
+                <div class="kpi-box"><span class="kpi-label">AVG (5)</span><span class="kpi-val" style="font-size:22px">${fmtRate(recent.weightedE2ETokPerSec)}</span></div>
+                <div class="kpi-box"><span class="kpi-label">${escapeHtml(t('ovContextWindow'))}</span><span class="kpi-val" style="font-size:22px">${fmtPct(ctxRatio)}</span></div>
+              </div>
+              ${buildDualBarSvg(data.stepRecords || [], 14, 118, true)}
+            </div>
+            ${modelsBlock}
+          `;
+        } else if (state.layoutId === 'L09') {
+          stage.innerHTML = `
+            <div class="card fill">
+              <div class="card-head">
+                <span class="card-title">${escapeHtml(t('ovDenseMatrix'))} (${fmtCompact(usedCtx)}/${fmtCompact(maxCtx)} · ${fmtPct(ctxRatio)})</span>
+                <span class="card-meta">${fmtRate(latest?.e2eTokPerSec)} tok/s</span>
+              </div>
+              <div class="gauge-track"><div class="gauge-fill" style="width:${(ctxRatio * 100).toFixed(1)}%"></div></div>
+              ${buildDualBarSvg(data.stepRecords || [], 12, 82, false)}
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>${escapeHtml(t('thDisplayName'))}</th><th>${escapeHtml(t('thEndpointId'))}</th><th class="num-col">ENUM</th><th class="num-col">${escapeHtml(t('thE2EVelocity'))}</th></tr></thead>
+                  <tbody>
+                    ${modelsUsed.map((m) => `<tr><td><strong>${escapeHtml(m.modelDisplayName)}</strong></td><td class="mono">${escapeHtml(m.responseModel)}</td><td class="num-col mono subtle">${escapeHtml(String(m.modelEnum).replace('MODEL_PLACEHOLDER_', ''))}</td><td class="num-col mono"><strong>${fmtRate(m.weightedE2ETokPerSec)} tok/s</strong></td></tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        } else if (state.layoutId === 'L10') {
+          const hitRate = (data.tokenTotals && data.tokenTotals.cacheHitRate) || 0;
+          stage.innerHTML = `
+            <div class="card">
+              <div class="stat-grid-3">
+                <div>${buildSemiGaugeSvg(ctxRatio, t('ovContextWindow'), fmtPct(ctxRatio))}</div>
+                <div>${buildSemiGaugeSvg(Math.min(1, (latest?.e2eTokPerSec || 0) / 120), 'E2E tok/s', fmtRate(latest?.e2eTokPerSec))}</div>
+                <div>${buildSemiGaugeSvg(hitRate, t('ovCacheHitGauge'), fmtPct(hitRate))}</div>
+              </div>
+            </div>
+            ${modelsBlock}
+            <div class="card">${buildDualBarSvg(data.stepRecords || [], 12, 78, false)}</div>
+          `;
+        } else if (state.layoutId === 'L11') {
+          const ePct = Math.min(100, ((latest?.e2eTokPerSec || 0) / Math.max(overall.peakE2ETokPerSec || 120, 50)) * 100);
+          stage.innerHTML = `
+            <div class="card">
+              <div class="card-title">${escapeHtml(t('ovHorizScale'))}</div>
+              <div class="stacked-group">
+                <div class="meta-strip"><span>${escapeHtml(t('ovE2EVelocity'))}</span><span class="mono"><strong>${fmtRate(latest?.e2eTokPerSec)} tok/s</strong> (${fmtRate(recent.weightedE2ETokPerSec)})</span></div>
+                <div class="gauge-track"><div class="gauge-fill" style="width:${ePct.toFixed(1)}%"></div></div>
+              </div>
+              <div class="stacked-group">
+                <div class="meta-strip"><span>${escapeHtml(t('ovContextWindow'))}</span><span class="mono"><strong>${fmtCompact(usedCtx)} / ${fmtCompact(maxCtx)} (${fmtPct(ctxRatio)})</strong></span></div>
+                <div class="gauge-track"><div class="gauge-fill" style="width:${(ctxRatio * 100).toFixed(1)}%"></div></div>
+              </div>
+            </div>
+            ${modelsBlock}
+          `;
+        } else if (state.layoutId === 'L12') {
+          stage.innerHTML = `
+            <div class="card">
+              <div class="stat-grid-3">
+                <div class="kpi-box"><span class="kpi-label">${escapeHtml(t('ovLatestVelocity'))}</span><span class="kpi-val" style="font-size:18px">${fmtRate(latest?.e2eTokPerSec)} tok/s</span></div>
+                <div class="kpi-box"><span class="kpi-label">${escapeHtml(t('ovContextWindow'))}</span><span class="kpi-val" style="font-size:18px">${fmtCompact(usedCtx)} / ${fmtCompact(maxCtx)}</span></div>
+                <div class="kpi-box"><span class="kpi-label">AVG (5)</span><span class="kpi-val" style="font-size:18px">${fmtRate(recent.weightedE2ETokPerSec)} tok/s</span></div>
+              </div>
+            </div>
+            <div class="card">${buildDualBarSvg(data.stepRecords || [], 14, 130, false)}</div>
+            ${modelsBlock}
+          `;
+        } else if (state.layoutId === 'L13') {
+          stage.innerHTML = `
+            <div class="card fill">
+              <div class="card-head"><span class="card-title">${escapeHtml(t('ovModelVersus'))}</span><span class="card-meta">${escapeHtml(t('fmtModelsCount')(modelsUsed.length))}</span></div>
+              <div class="scroll-area">${buildModelsCardsHtml(modelsUsed, totalConvReq)}</div>
+            </div>
+            <div class="card">
+              <div class="meta-strip">
+                <span>E2E <strong>${fmtRate(latest?.e2eTokPerSec)} tok/s</strong> · AVG(5) <strong>${fmtRate(recent.weightedE2ETokPerSec)} tok/s</strong></span>
+                <span class="mono">${fmtCompact(usedCtx)}/${fmtCompact(maxCtx)} (${fmtPct(ctxRatio)})</span>
+              </div>
+              <div class="gauge-track"><div class="gauge-fill" style="width:${(ctxRatio * 100).toFixed(1)}%"></div></div>
+            </div>
+          `;
+        } else if (state.layoutId === 'L14') {
+          stage.innerHTML = `
+            <div class="card">
+              <div class="card-title">${escapeHtml(t('ovWaterfall'))} (Step #${latest ? (latest.stepIndices?.[0] ?? '-') : '-'})</div>
+              <div class="stat-grid-3">
+                <div class="model-row-card"><span class="kpi-label">${escapeHtml(t('ovStep1Input'))}</span><span class="kpi-val" style="font-size:18px">${fmtCompact(usedCtx)}</span><span class="kpi-sub">${fmtCompact(maxCtx)} (${fmtPct(ctxRatio)})</span></div>
+                <div class="model-row-card"><span class="kpi-label">${escapeHtml(t('ovStep2Ttft'))}</span><span class="kpi-val" style="font-size:18px">${fmtSec(latest?.timeToFirstTokenSec)}</span><span class="kpi-sub">${latest ? fmtInt(latest.outputTokens) : 0} tok</span></div>
+                <div class="model-row-card"><span class="kpi-label">${escapeHtml(t('ovStep3E2E'))}</span><span class="kpi-val" style="font-size:18px">${fmtRate(latest?.e2eTokPerSec)}</span><span class="kpi-sub">${fmtRate(recent.weightedE2ETokPerSec)} tok/s</span></div>
+              </div>
+              ${buildDualBarSvg(data.stepRecords || [], 12, 78, false)}
+            </div>
+            ${modelsBlock}
+          `;
+        } else if (state.layoutId === 'L19') {
+          const topM = modelsUsed[0] || {};
+          stage.innerHTML = `
+            <div class="card">
+              <div class="card-head"><span class="card-title">${escapeHtml(t('ovPrimaryModelFocus'))}</span><span class="card-meta">${escapeHtml(topM.apiProvider || '')}</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <div>
+                  <div style="font-size:16px;font-weight:700">${escapeHtml(topM.modelDisplayName || '-')}</div>
+                  <div class="mono" style="font-size:12px;color:var(--bar-primary)">${escapeHtml(topM.responseModel || '-')} (${escapeHtml(topM.modelEnum || '-')})</div>
+                </div>
+                <div style="text-align:right">
+                  <div class="kpi-val" style="font-size:24px">${fmtRate(latest?.e2eTokPerSec)}<span class="kpi-unit">tok/s</span></div>
+                  <div class="kpi-sub">AVG(5) ${fmtRate(recent.weightedE2ETokPerSec)} tok/s</div>
+                </div>
+              </div>
+              ${buildDualBarSvg(data.stepRecords || [], 12, 82, false)}
+            </div>
+            ${contextBlock}
+            ${modelsBlock}
+          `;
+        } else if (state.layoutId === 'L20') {
+          stage.innerHTML = `
+            <div class="card mono">
+              <div class="meta-strip"><span>[CTX_WIN] ${fmtInt(usedCtx)} / ${fmtInt(maxCtx)} TOK (${fmtPct(ctxRatio)})</span><span>[COMPACT] ${escapeHtml(acShort)}</span></div>
+              ${buildLedSegmentsHtml(ctxRatio)}
+              <div class="meta-strip"><span>[VEL_E2E] ${fmtRate(latest?.e2eTokPerSec)} tok/s</span><span>[AVG_5] ${fmtRate(recent.weightedE2ETokPerSec)} tok/s</span></div>
+              ${buildDualBarSvg(data.stepRecords || [], 12, 84, false)}
+            </div>
+            ${modelsBlock}
+          `;
+        } else {
+          stage.innerHTML = `${contextBlock}${rateBlock}${modelsBlock}`;
+        }
+      }
+
+      function renderTelemetry(data) {
+        state.lastTelemetry = data;
+        state.selectedConversationId = data.conversationId || state.selectedConversationId;
+
+        if (data.themePrefs) {
+          let themeChanged = false;
+          if (
+            !urlParams.get('layout') &&
+            !urlParams.get('icon') &&
+            !urlParams.get('color') &&
+            (data.themePrefs.layoutId !== state.layoutId ||
+              data.themePrefs.iconId !== state.iconId ||
+              data.themePrefs.colorId !== state.colorId)
+          ) {
+            state.layoutId = data.themePrefs.layoutId || state.layoutId;
+            state.iconId = data.themePrefs.iconId || state.iconId;
+            state.colorId = data.themePrefs.colorId || state.colorId;
+            themeChanged = true;
+          }
+
+          if (!state.userExplicitLang) {
+            const prefLang = normalizeLangCode(data.themePrefs.lang);
+            const hostLang = normalizeLangCode(data.runtimeEnv && data.runtimeEnv.hostLocale);
+            const targetLang = prefLang || hostLang || state.lang;
+            if (targetLang && targetLang !== state.lang) {
+              state.lang = targetLang;
+              if (prefLang) state.userExplicitLang = true;
+              applyI18nStaticLabels();
+              return;
+            }
+          }
+
+          if (themeChanged) {
+            applyStudioTheme();
+          }
+        }
+
+        renderConversationSelect(data.availableConversations, data.conversationId);
+
+        const timeStr = new Date(data.collectedAt || Date.now()).toLocaleTimeString(
+          state.lang === 'zh-CN' ? 'zh-CN' : 'en-US',
+          { hour12: false }
+        );
+        document.getElementById('statusTimestamp').textContent = timeStr;
+
+        // TAB 1: Dynamic Overview Stage
+        renderOverviewStage(data);
+
+        // TAB 2: Tokens & Throughput
+        const env = data.runtimeEnv || {};
+        const ac = env.autoCompactOverride || {};
+        const cwCfg = env.contextWindowConfig || {};
+        const cwState = data.contextWindowState || {};
+        const maxCtx = cwState.maxContextTokens || 0;
+        const tp = data.throughput || {};
+        const latest = tp.latest || null;
+        const recent = tp.recentWindow || {};
+        const overall = tp.sessionOverall || {};
+        const totals = data.tokenTotals || {};
+
+        document.getElementById('tkSampleCount').textContent = t('fmtValidSamples')(overall.sampleCount || 0);
+        document.getElementById('tkE2ESession').textContent = fmtRate(overall.weightedE2ETokPerSec);
+        document.getElementById('tkE2ESub').textContent =
+          t('fmtLatestLast5')(fmtRate(latest?.e2eTokPerSec), fmtRate(recent.weightedE2ETokPerSec));
+
+        document.getElementById('tkCacheHitRate').textContent = t('fmtCacheHit')(fmtPct(totals.cacheHitRate));
+        document.getElementById('tkGrandTotal').textContent = fmtCompact(totals.grandTotalTokens);
+        document.getElementById('tkPromptSub').textContent =
+          t('fmtTotalInOut')(fmtCompact(totals.totalPromptTokens), fmtCompact(totals.totalOutputTokens));
+
+        document.getElementById('tkTotalRequests').textContent =
+          t('fmtReqsRetries')(totals.totalRequests || 0, totals.totalRetryCount || 0);
+
+        const promptTotal = Math.max(1, totals.totalPromptTokens || 0);
+        const cachePct = totals.totalPromptTokens > 0 ? (totals.totalCacheReadTokens / promptTotal) * 100 : 0;
+        const freshPct = totals.totalPromptTokens > 0 ? (totals.totalInputTokens / promptTotal) * 100 : 0;
+        document.getElementById('tkInputMixLabel').textContent =
+          `${fmtCompact(totals.totalCacheReadTokens)} (${cachePct.toFixed(1)}%) / ${fmtCompact(totals.totalInputTokens)}`;
+        document.getElementById('tkCacheBar').style.width = `${cachePct.toFixed(1)}%`;
+        document.getElementById('tkFreshInputBar').style.width = `${freshPct.toFixed(1)}%`;
+
+        const outTotal = Math.max(1, totals.totalOutputTokens || 0);
+        const thinkPct = totals.totalOutputTokens > 0 ? (totals.totalThinkingOutputTokens / outTotal) * 100 : 0;
+        const respPct = totals.totalOutputTokens > 0 ? (totals.totalResponseOutputTokens / outTotal) * 100 : 0;
+        document.getElementById('tkOutputMixLabel').textContent =
+          t('fmtThinkRespMix')(
+            fmtCompact(totals.totalThinkingOutputTokens),
+            thinkPct.toFixed(1),
+            fmtCompact(totals.totalResponseOutputTokens)
+          );
+        document.getElementById('tkThinkingBar').style.width = `${thinkPct.toFixed(1)}%`;
+        document.getElementById('tkResponseBar').style.width = `${respPct.toFixed(1)}%`;
+
+        const validStepsRev = (Array.isArray(data.stepRecords) ? data.stepRecords : [])
+          .filter((s) => s.outputTokens > 0 && !s.isSinglePacketFlush && Number(s.e2eTokPerSec) > 0)
+          .slice()
+          .reverse();
+        document.getElementById('tkValidListMeta').textContent = t('fmtValidReqsCount')(validStepsRev.length);
+        document.getElementById('tkValidStepsTableBody').innerHTML = validStepsRev
+          .slice(0, 40)
+          .map((s) => {
+            const stepSpan =
+              s.stepIndices && s.stepIndices.length > 1
+                ? `#${s.firstStepIndex}..${s.lastStepIndex}`
+                : `#${s.firstStepIndex ?? (s.stepIndices?.[0] ?? '-')}`;
+            return `
+              <tr>
+                <td class="mono"><div>${stepSpan}</div></td>
+                <td>
+                  <div><strong>${escapeHtml(s.modelDisplayName)}</strong></div>
+                  <div class="mono subtle">${escapeHtml(s.responseModel)}</div>
+                </td>
+                <td class="num-col mono">
+                  <div><strong>${fmtInt(s.outputTokens)} tok</strong></div>
+                  <div class="subtle">${escapeHtml(t('fmtCacheShort')(fmtCompact(s.cacheReadTokens)))}</div>
+                </td>
+                <td class="num-col mono">
+                  <div><strong>${fmtRate(s.e2eTokPerSec)} tok/s</strong></div>
+                  <div class="subtle">${escapeHtml(t('fmtTtftShort')(fmtSec(s.timeToFirstTokenSec)))}</div>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+
+        // TAB 3: Global Model Dictionary
+        const globalReg = data.globalModelRegistry || {};
+        const globalEntries = Array.isArray(globalReg.entries) ? globalReg.entries : [];
+        const topGlobalModel = globalEntries[0] || {};
+        document.getElementById('mdScannedConvs').textContent = t('fmtAcrossSessions')(globalReg.scannedConversations || 0);
+        document.getElementById('mdModelCount').textContent = `${globalEntries.length}`;
+        document.getElementById('mdTopModelName').textContent =
+          t('fmtPrimaryModel')(topGlobalModel.modelDisplayName || '-');
+        document.getElementById('mdTotalGlobalReqs').textContent =
+          `${fmtInt(globalReg.totalGlobalRequests || 0)}`;
+        document.getElementById('mdTopEndpointId').textContent =
+          t('fmtPrimaryEndpoint')(topGlobalModel.responseModel || '-');
+        document.getElementById('mdGlobalSummary').textContent =
+          t('fmtAcrossSessionsCalls')(globalReg.scannedConversations || 0, fmtInt(globalReg.totalGlobalRequests));
+        document.getElementById('mdGlobalTableBody').innerHTML = globalEntries
+          .map((g) => {
+            const shortEnum = String(g.modelEnum || '').replace('MODEL_PLACEHOLDER_', '');
+            const shortProv = String(g.apiProvider || '').replace('API_PROVIDER_', '');
+            return `
+              <tr>
+                <td>
+                  <div><strong>${escapeHtml(g.modelDisplayName)}</strong></div>
+                  <div class="subtle mono">${escapeHtml(shortProv)}</div>
+                </td>
+                <td class="mono">
+                  <div><strong>${escapeHtml(g.responseModel)}</strong></div>
+                  <div class="subtle">${escapeHtml(shortEnum)}</div>
+                </td>
+                <td class="num-col mono">
+                  <div><strong>${escapeHtml(t('fmtCallsCount')(fmtInt(g.requestCount)))}</strong></div>
+                  <div class="subtle">${escapeHtml(t('fmtWinShort')(g.maxContextTokens > 0 ? fmtCompact(g.maxContextTokens) : '-'))}</div>
+                </td>
+                <td class="num-col mono">
+                  <div><strong>${fmtRate(g.weightedE2ETokPerSec)} tok/s</strong></div>
+                  <div class="subtle">${escapeHtml(t('fmtOutShort')(fmtCompact(g.outputTokens)))}</div>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+
+        // TAB 4: Runtime Config & Steps
+        document.getElementById('stDataSource').textContent = 'AUTO_COMPACT';
+        const acVal = ac.value ?? ac.envValue ?? null;
+        document.getElementById('stAutoCompactVal').textContent =
+          acVal !== null && acVal !== undefined ? String(acVal) : t('defaultOn');
+        document.getElementById('stAutoCompactSrc').textContent = formatAutoCompactSource(ac);
+        document.getElementById('stContextWinVal').textContent =
+          maxCtx > 0 ? fmtCompact(maxCtx) : (cwCfg.configuredValue || t('defaultVal'));
+        document.getElementById('stPlannerMaxOut').textContent =
+          t('fmtMaxStepOut')(
+            cwState.plannerMaxOutputTokens > 0 ? fmtCompact(cwState.plannerMaxOutputTokens) : '-',
+            cwCfg.configuredValue ? t('overridden') : t('notOverridden')
+          );
+
+        const steps = (Array.isArray(data.stepRecords) ? data.stepRecords : []).slice().reverse();
+        document.getElementById('stStepsCount').textContent = t('fmtStepsCount')(steps.length);
+        document.getElementById('stStepsTableBody').innerHTML = steps
+          .slice(0, 40)
+          .map((s) => {
+            const stepSpan =
+              s.stepIndices.length > 1
+                ? `#${s.firstStepIndex}..${s.lastStepIndex}`
+                : `#${s.firstStepIndex}`;
+            return `
+              <tr>
+                <td class="mono">
+                  <div>${stepSpan}</div>
+                  <div class="subtle">${s.retryCount > 0 ? escapeHtml(t('fmtRetryBadge')(s.retryCount)) : ''}</div>
+                </td>
+                <td>
+                  <div><strong>${escapeHtml(s.modelDisplayName)}</strong></div>
+                  <div class="mono subtle">${escapeHtml(s.responseModel)}</div>
+                </td>
+                <td class="num-col mono">
+                  <div><strong>${fmtInt(s.outputTokens)} tok</strong></div>
+                  <div class="subtle">${escapeHtml(t('fmtTtftShort')(fmtSec(s.timeToFirstTokenSec)))}</div>
+                </td>
+                <td class="num-col mono">
+                  <div><strong>${fmtRate(s.e2eTokPerSec)} tok/s</strong></div>
+                  <div class="subtle">${escapeHtml(t('fmtThinkRespShort')(fmtInt(s.thinkingOutputTokens), fmtInt(s.responseOutputTokens)))}</div>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+      }
+
+      async function refreshTelemetry(explicitConvId) {
+        try {
+          const targetId =
+            explicitConvId !== undefined ? explicitConvId : state.selectedConversationId;
+          const data = await apiFetch('/api/telemetry', {
+            conversationId: targetId,
+            recentWindowSize: 5,
+          });
+          renderTelemetry(data);
+        } catch (err) {
+          document.getElementById('statusTimestamp').textContent = t('retry');
+        }
+      }
+
+      function schedulePolling() {
+        if (state.pollTimer) {
+          clearInterval(state.pollTimer);
+          state.pollTimer = null;
+        }
+        if (state.pollIntervalMs > 0) {
+          state.pollTimer = setInterval(() => {
+            refreshTelemetry(state.selectedConversationId);
+          }, state.pollIntervalMs);
+        }
+      }
+
+      document.getElementById('conversationSelect').addEventListener('change', (e) => {
+        state.selectedConversationId = e.target.value;
+        refreshTelemetry(state.selectedConversationId);
+      });
+
+      document.getElementById('pollIntervalSelect').addEventListener('change', (e) => {
+        state.pollIntervalMs = Number(e.target.value) || 0;
+        schedulePolling();
+      });
+
+      document.getElementById('refreshBtn').addEventListener('click', () => {
+        refreshTelemetry(state.selectedConversationId);
+      });
+
+      applyI18nStaticLabels();
+      if (['overview', 'tokens', 'models', 'steps', 'studio'].includes(state.activeTab)) {
+        switchTab(state.activeTab);
+      }
+      refreshTelemetry(state.selectedConversationId);
+      schedulePolling();
+    })();
+  </script>
+</body>
+</html>
