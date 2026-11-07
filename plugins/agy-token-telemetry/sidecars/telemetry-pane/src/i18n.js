@@ -123,6 +123,9 @@ export const I18N = {
     fmtStepsCount: (n) => `${n} steps`,
     fmtRetryBadge: (r) => `Retry x${r}`,
     fmtThinkRespShort: (t, r) => `T ${t} / R ${r}`,
+    historyConversationsLabel: 'History Sessions',
+    fmtHistoryConversationsCount: (n) => `${n} history`,
+    backToActiveConversations: 'Back to Active',
   },
   'zh-CN': {
     panelConversation: '对话',
@@ -243,6 +246,9 @@ export const I18N = {
     fmtStepsCount: (n) => `共 ${n} 步`,
     fmtRetryBadge: (r) => `重试x${r}`,
     fmtThinkRespShort: (t, r) => `思 ${t} / 回 ${r}`,
+    historyConversationsLabel: '历史对话',
+    fmtHistoryConversationsCount: (n) => `${n} 个历史对话`,
+    backToActiveConversations: '返回当前对话',
   },
 };
 

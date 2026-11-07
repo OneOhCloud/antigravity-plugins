@@ -21,13 +21,13 @@ curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main
    - Visualizes input cache hit ratio (`cacheReadTokens / (inputTokens + cacheReadTokens)`) and thinking vs. response output token proportions.
 2. **Readable Model Name & Underlying Endpoint Mapping**:
    - Extracts `modelDisplayName` (e.g. `Gemini 4 Argon (High)`), `responseModel` endpoint ID (e.g. `gemini-4-argon`), `model` enum (`MODEL_PLACEHOLDER_*`), and `apiProvider` across both the active session and a global local registry of up to 60 conversations.
-3. **End-to-End (`E2E`) `tok/s` Velocity**:
-   - Computes `outputTokens / (timeToFirstToken + streamingDuration)` for valid generation steps (`outputTokens > 0` and `streamingDuration >= 50ms`, automatically filtering single-packet flush artifacts) across the latest request, last-5-request weighted window, and full-session average.
-4. **Context Window & Auto-Compact Inspection**:
-   - Displays real-time context window utilization (`estimatedTokensUsed / maxContextTokens`), remaining token capacity, `~/.gemini/antigravity-cli/settings.json` `contextWindow` overrides, and `AGY_CLI_AUTO_COMPACT_OVERRIDE` environment / shell profile settings.
-5. **React 18 Dual-Panel Architecture, Tri-State SVG Status & Bilingual UI (`en` / `zh-CN`)**:
-   - **Session Panel (Default)**: Features **Overview** (2x2 Bento KPI grid with End-to-End Velocity, Cumulative Tokens, Latest E2E Velocity, and Context Window, plus Recent E2E Velocity Trend and Session Model Cards) and **Details** (Token Composition and Valid Step Requests).
-   - **Global Panel**: Features **Model Registry** and **Config & Steps**, along with the global `EN` / `中文` language toggle.
+3. **End-to-End (`E2E`) `tok/s` Velocity & Full Session-Tree Total Throughput**:
+   - Computes `outputTokens / (timeToFirstToken + streamingDuration)` for each agent node (`outputTokens > 0 && totalDurationSec > 0`) and sums throughput, sample counts, token consumption, context window capacity, and model velocity across the main session and all sub-agents when `All (Main + Sub)` scope is selected.
+4. **Context Window Wafer Matrix & Auto-Compact Inspection**:
+   - Displays real-time context window utilization (`estimatedTokensUsed / maxContextTokens`) with a full-width wafer grid matrix, remaining token capacity, `~/.gemini/antigravity-cli/settings.json` `contextWindow` overrides, and `AGY_CLI_AUTO_COMPACT_OVERRIDE` environment / shell profile settings.
+5. **React 18 + Tailwind CSS v4 Production Architecture, Two-Level Project History Menu & Bilingual UI (`en` / `zh-CN`)**:
+   - **Session Panel (Default)**: Scoped to the active workspace, featuring a two-level conversation selector (active session in the primary list, historical project sessions tucked into an in-place constant-height `History Sessions` secondary view), **Overview**, and **Details**.
+   - **Global Panel**: Features **Global Sessions**, **Model Registry**, and **Config & Steps**, along with the `⋯` secondary actions menu (`EN` / `中文` toggle and refresh interval).
    - **Tri-State Vector SVG Status Indicators**: Custom React dropdown lists display a green dot (`#34C759`) for active conversations, a gray dot (`#86868B`) for inactive conversations, and a green checkmark (`#34C759`) for completed sub-agent conversations.
    - Supports `1s`, `5s`, `10s`, `30s`, and `Manual` refresh intervals.
 

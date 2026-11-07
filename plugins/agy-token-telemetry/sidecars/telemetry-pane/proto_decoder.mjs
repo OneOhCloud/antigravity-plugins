@@ -636,6 +636,11 @@ export function normalizeStepRecord(raw) {
     outputTokens > 0 && totalDurationSec > 0
       ? outputTokens / totalDurationSec
       : 0;
+  const isValidE2ESample =
+    outputTokens > 0 &&
+    totalDurationSec > 0 &&
+    e2eTokPerSec > 0 &&
+    e2eTokPerSec <= 1000;
 
   const rawCtx =
     cm.contextWindowMetadata ||
@@ -695,6 +700,7 @@ export function normalizeStepRecord(raw) {
     totalDurationSec,
     isSinglePacketFlush,
     isValidThroughputSample,
+    isValidE2ESample,
     streamingTokPerSec,
     responseStreamingTokPerSec,
     e2eTokPerSec,

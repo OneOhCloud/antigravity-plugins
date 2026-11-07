@@ -20,170 +20,31 @@ import {
   readGeneratorMetadataFromSqlite,
   readStepTimestampsFromTranscript,
 } from './sqlite_rpc.mjs';
+import {
+  accumulateStepIntoModelGroup,
+  aggregateScopedTokensAndModels,
+  buildThroughputPayload,
+  computeThroughputWindowSummary,
+  finalizeModelGroupEntries,
+  isStepValidForE2E,
+  sumThroughputWindowSummaries,
+} from './throughput_aggregator.mjs';
 
 export {
   callLanguageServerRpc,
   collectRuntimeEnvironment,
+  computeThroughputWindowSummary,
   detectHostLocale,
   listAvailableConversations,
   readGeneratorMetadataFromSqlite,
   resolveConversationLifecycleStatus,
   resolveWorkspaceScopedConversations,
+  sumThroughputWindowSummaries,
 };
 
 const DEFAULT_RECENT_SAMPLE_WINDOW = 5;
 const GLOBAL_REGISTRY_CACHE_TTL_MS = 5000;
 const globalRegistryCache = new Map();
-
-/**
- * Computes throughput summary (`tok/s`) for a given slice of valid step records.
- */
-export function computeThroughputWindowSummary(validSteps) {
-  if (!Array.isArray(validSteps) || validSteps.length === 0) {
-    return {
-      sampleCount: 0,
-      totalOutputTokens: 0,
-      totalThinkingOutputTokens: 0,
-      totalResponseOutputTokens: 0,
-      totalStreamingDurationSec: 0,
-      totalE2EDurationSec: 0,
-      weightedStreamingTokPerSec: 0,
-      meanStreamingTokPerSec: 0,
-      weightedE2ETokPerSec: 0,
-      meanE2ETokPerSec: 0,
-      meanTtftSec: 0,
-      peakStreamingTokPerSec: 0,
-      peakE2ETokPerSec: 0,
-    };
-  }
-
-  let totalOutputTokens = 0;
-  let totalThinkingOutputTokens = 0;
-  let totalResponseOutputTokens = 0;
-  let totalStreamingDurationSec = 0;
-  let totalE2EDurationSec = 0;
-  let totalTtftSec = 0;
-  let sumStreamingRates = 0;
-  let sumE2ERates = 0;
-  let peakStreamingTokPerSec = 0;
-  let peakE2ETokPerSec = 0;
-
-  for (const step of validSteps) {
-    totalOutputTokens += step.outputTokens;
-    totalThinkingOutputTokens += step.thinkingOutputTokens;
-    totalResponseOutputTokens += step.responseOutputTokens;
-    totalStreamingDurationSec += step.streamingDurationSec;
-    totalE2EDurationSec += step.totalDurationSec;
-    totalTtftSec += step.timeToFirstTokenSec;
-    sumStreamingRates += step.streamingTokPerSec;
-    sumE2ERates += step.e2eTokPerSec;
-    if (step.streamingTokPerSec > peakStreamingTokPerSec) {
-      peakStreamingTokPerSec = step.streamingTokPerSec;
-    }
-    if (step.e2eTokPerSec > peakE2ETokPerSec) {
-      peakE2ETokPerSec = step.e2eTokPerSec;
-    }
-  }
-
-  const count = validSteps.length;
-  return {
-    sampleCount: count,
-    totalOutputTokens,
-    totalThinkingOutputTokens,
-    totalResponseOutputTokens,
-    totalStreamingDurationSec,
-    totalE2EDurationSec,
-    weightedStreamingTokPerSec:
-      totalStreamingDurationSec > 0
-        ? totalOutputTokens / totalStreamingDurationSec
-        : 0,
-    meanStreamingTokPerSec: sumStreamingRates / count,
-    weightedE2ETokPerSec:
-      totalE2EDurationSec > 0 ? totalOutputTokens / totalE2EDurationSec : 0,
-    meanE2ETokPerSec: sumE2ERates / count,
-    meanTtftSec: totalTtftSec / count,
-    peakStreamingTokPerSec,
-    peakE2ETokPerSec,
-  };
-}
-
-function accumulateStepIntoModelGroup(map, step, conversationId = '') {
-  const key = `${step.modelDisplayName}||${step.responseModel}||${step.modelEnum}`;
-  if (!map.has(key)) {
-    map.set(key, {
-      modelDisplayName: step.modelDisplayName,
-      responseModel: step.responseModel,
-      configuredModelId: step.configuredModelId || '',
-      modelEnum: step.modelEnum,
-      apiProvider: step.apiProvider,
-      remainingQuotaFraction:
-        step.remainingQuotaFraction !== undefined
-          ? step.remainingQuotaFraction
-          : null,
-      quotaResetTime: step.quotaResetTime || '',
-      maxContextTokens: step.maxContextTokens || 0,
-      requestCount: 0,
-      conversationIds: new Set(),
-      inputTokens: 0,
-      cacheReadTokens: 0,
-      outputTokens: 0,
-      thinkingOutputTokens: 0,
-      responseOutputTokens: 0,
-      validSteps: [],
-    });
-  }
-
-  const group = map.get(key);
-  group.requestCount += 1;
-  if (conversationId) {
-    group.conversationIds.add(conversationId);
-  }
-  if (step.maxContextTokens > group.maxContextTokens) {
-    group.maxContextTokens = step.maxContextTokens;
-  }
-  group.inputTokens += step.inputTokens;
-  group.cacheReadTokens += step.cacheReadTokens;
-  group.outputTokens += step.outputTokens;
-  group.thinkingOutputTokens += step.thinkingOutputTokens;
-  group.responseOutputTokens += step.responseOutputTokens;
-  if (step.isValidThroughputSample) {
-    group.validSteps.push(step);
-  }
-}
-
-function finalizeModelGroupEntries(map) {
-  return Array.from(map.values())
-    .map((g) => {
-      const tp = computeThroughputWindowSummary(g.validSteps);
-      const totalPrompt = g.inputTokens + g.cacheReadTokens;
-      return {
-        modelDisplayName: g.modelDisplayName,
-        responseModel: g.responseModel,
-        configuredModelId: g.configuredModelId,
-        modelEnum: g.modelEnum,
-        apiProvider: g.apiProvider,
-        remainingQuotaFraction: g.remainingQuotaFraction,
-        quotaResetTime: g.quotaResetTime,
-        maxContextTokens: g.maxContextTokens,
-        requestCount: g.requestCount,
-        conversationCount: g.conversationIds.size,
-        validSampleCount: tp.sampleCount,
-        inputTokens: g.inputTokens,
-        cacheReadTokens: g.cacheReadTokens,
-        totalPromptTokens: totalPrompt,
-        cacheHitRate: totalPrompt > 0 ? g.cacheReadTokens / totalPrompt : 0,
-        outputTokens: g.outputTokens,
-        thinkingOutputTokens: g.thinkingOutputTokens,
-        responseOutputTokens: g.responseOutputTokens,
-        weightedStreamingTokPerSec: tp.weightedStreamingTokPerSec,
-        meanStreamingTokPerSec: tp.meanStreamingTokPerSec,
-        weightedE2ETokPerSec: tp.weightedE2ETokPerSec,
-        meanE2ETokPerSec: tp.meanE2ETokPerSec,
-        meanTtftSec: tp.meanTtftSec,
-      };
-    })
-    .sort((a, b) => b.requestCount - a.requestCount);
-}
 
 /**
  * Aggregates a global registry of all `gen_metadata` model display names,
@@ -422,7 +283,7 @@ async function collectNodeTelemetryEntry({
     ) {
       nodeLatestContextStep = enrichedStep;
     }
-    if (enrichedStep.isValidThroughputSample) {
+    if (isStepValidForE2E(enrichedStep)) {
       nodeValidSteps.push(enrichedStep);
     }
   }
@@ -435,6 +296,7 @@ async function collectNodeTelemetryEntry({
     entry: {
       node,
       chatStepRecords: nodeChatSteps,
+      validStepRecords: nodeValidSteps,
       plannerMaxOutputTokens: nodePlannerMaxOutputTokens,
       latestContextStep: nodeLatestContextStep,
       summary: {
@@ -465,60 +327,6 @@ async function collectNodeTelemetryEntry({
   };
 }
 
-function aggregateScopedTokensAndModels(chatStepRecords, validThroughputSteps) {
-  let totalInputTokens = 0;
-  let totalCacheReadTokens = 0;
-  let totalCacheWriteTokens = 0;
-  let totalOutputTokens = 0;
-  let totalThinkingOutputTokens = 0;
-  let totalResponseOutputTokens = 0;
-  let totalRetryCount = 0;
-  const modelGroupsMap = new Map();
-
-  for (const step of chatStepRecords) {
-    totalInputTokens += step.inputTokens;
-    totalCacheReadTokens += step.cacheReadTokens;
-    totalCacheWriteTokens += step.cacheWriteTokens;
-    totalOutputTokens += step.outputTokens;
-    totalThinkingOutputTokens += step.thinkingOutputTokens;
-    totalResponseOutputTokens += step.responseOutputTokens;
-    totalRetryCount += step.retryCount;
-
-    if (
-      step.responseModel === 'unspecified' &&
-      step.inputTokens === 0 &&
-      step.outputTokens === 0
-    ) {
-      continue;
-    }
-
-    accumulateStepIntoModelGroup(modelGroupsMap, step);
-  }
-
-  const totalPromptTokens = totalInputTokens + totalCacheReadTokens;
-  const cacheHitRate =
-    totalPromptTokens > 0 ? totalCacheReadTokens / totalPromptTokens : 0;
-  const modelsUsed = finalizeModelGroupEntries(modelGroupsMap);
-
-  return {
-    tokenTotals: {
-      totalRequests: chatStepRecords.length,
-      validThroughputRequests: validThroughputSteps.length,
-      totalRetryCount,
-      totalInputTokens,
-      totalCacheReadTokens,
-      totalCacheWriteTokens,
-      totalPromptTokens,
-      cacheHitRate,
-      totalOutputTokens,
-      totalThinkingOutputTokens,
-      totalResponseOutputTokens,
-      grandTotalTokens: totalPromptTokens + totalOutputTokens,
-    },
-    modelsUsed,
-  };
-}
-
 function selectScopedNodeEntries(
   activeScope,
   rootConv,
@@ -540,16 +348,60 @@ function selectScopedNodeEntries(
   let plannerMaxOutputTokens = 0;
   const chatStepRecords = [];
   for (const entry of selectedNodeEntries) {
-    if (entry.plannerMaxOutputTokens > plannerMaxOutputTokens) {
+    if (activeScope === 'tree') {
+      plannerMaxOutputTokens += entry.plannerMaxOutputTokens || 0;
+    } else if (entry.plannerMaxOutputTokens > plannerMaxOutputTokens) {
       plannerMaxOutputTokens = entry.plannerMaxOutputTokens;
     }
     chatStepRecords.push(...entry.chatStepRecords);
   }
 
+  if (activeScope === 'tree' && selectedNodeEntries.length > 1) {
+    chatStepRecords.sort((a, b) => {
+      if (a.createdAt && b.createdAt && a.createdAt !== b.createdAt) {
+        return a.createdAt.localeCompare(b.createdAt);
+      }
+      return (a.firstStepIndex || 0) - (b.firstStepIndex || 0);
+    });
+  }
+
+  if (activeScope === 'tree') {
+    const rootCtxStep = nodeDataById.get(rootConv.conversationId)?.latestContextStep;
+    const defaultMaxCtx = rootCtxStep?.maxContextTokens || 256000;
+    let sumUsedCtx = 0;
+    let sumMaxCtx = 0;
+    const breakdownMap = new Map();
+
+    for (const entry of selectedNodeEntries) {
+      const ctxStep = entry.latestContextStep;
+      if (!ctxStep && entry.chatStepRecords.length === 0) continue;
+      sumUsedCtx += ctxStep?.estimatedTokensUsed || 0;
+      sumMaxCtx += ctxStep?.maxContextTokens || defaultMaxCtx;
+      for (const g of ctxStep?.breakdownGroups || []) {
+        if (!g?.name) continue;
+        breakdownMap.set(
+          g.name,
+          (breakdownMap.get(g.name) || 0) + (g.totalTokens || 0)
+        );
+      }
+    }
+
+    return {
+      selectedNodeEntries,
+      plannerMaxOutputTokens,
+      chatStepRecords,
+      latestContextStep: {
+        estimatedTokensUsed: sumUsedCtx,
+        maxContextTokens: sumMaxCtx || defaultMaxCtx,
+        breakdownGroups: Array.from(breakdownMap.entries()).map(
+          ([name, totalTokens]) => ({ name, totalTokens })
+        ),
+      },
+    };
+  }
+
   const contextTargetEntry =
-    activeScope !== 'tree' &&
-    activeScope !== 'root' &&
-    nodeDataById.has(activeScope)
+    activeScope !== 'root' && nodeDataById.has(activeScope)
       ? nodeDataById.get(activeScope)
       : nodeDataById.get(rootConv.conversationId);
   let latestContextStep = contextTargetEntry?.latestContextStep || null;
@@ -561,7 +413,12 @@ function selectScopedNodeEntries(
     }
   }
 
-  return { plannerMaxOutputTokens, chatStepRecords, latestContextStep };
+  return {
+    selectedNodeEntries,
+    plannerMaxOutputTokens,
+    chatStepRecords,
+    latestContextStep,
+  };
 }
 
 function buildSessionHierarchySummary(
@@ -617,40 +474,6 @@ function buildSessionHierarchySummary(
       grandTotalTokens: rootNodeSummary.grandTotalTokens,
     },
     nodes: hierarchyNodeSummaries,
-  };
-}
-
-function buildThroughputPayload(validThroughputSteps, recentWindowSize) {
-  const latestValidStep =
-    validThroughputSteps.length > 0
-      ? validThroughputSteps[validThroughputSteps.length - 1]
-      : null;
-  const recentValidSteps = validThroughputSteps.slice(-recentWindowSize);
-
-  return {
-    recentWindowSize,
-    latest: latestValidStep
-      ? {
-          stepIndices: latestValidStep.stepIndices,
-          trajectoryId: latestValidStep.trajectoryId,
-          isSubagent: latestValidStep.isSubagent,
-          nestingDepth: latestValidStep.nestingDepth,
-          agentName: latestValidStep.agentName,
-          agentRole: latestValidStep.agentRole,
-          modelDisplayName: latestValidStep.modelDisplayName,
-          responseModel: latestValidStep.responseModel,
-          outputTokens: latestValidStep.outputTokens,
-          thinkingOutputTokens: latestValidStep.thinkingOutputTokens,
-          responseOutputTokens: latestValidStep.responseOutputTokens,
-          timeToFirstTokenSec: latestValidStep.timeToFirstTokenSec,
-          streamingDurationSec: latestValidStep.streamingDurationSec,
-          totalDurationSec: latestValidStep.totalDurationSec,
-          streamingTokPerSec: latestValidStep.streamingTokPerSec,
-          e2eTokPerSec: latestValidStep.e2eTokPerSec,
-        }
-      : null,
-    recentWindow: computeThroughputWindowSummary(recentValidSteps),
-    sessionOverall: computeThroughputWindowSummary(validThroughputSteps),
   };
 }
 
@@ -743,20 +566,23 @@ export async function collectConversationTelemetry(
     nodeDataById.set(node.conversationId, entry);
   }
 
-  const { plannerMaxOutputTokens, chatStepRecords, latestContextStep } =
-    selectScopedNodeEntries(
-      activeScope,
-      rootConv,
-      allHierarchyNodes,
-      nodeDataById
-    );
-
-  const validThroughputSteps = chatStepRecords.filter(
-    (s) => s.isValidThroughputSample
+  const {
+    selectedNodeEntries,
+    plannerMaxOutputTokens,
+    chatStepRecords,
+    latestContextStep,
+  } = selectScopedNodeEntries(
+    activeScope,
+    rootConv,
+    allHierarchyNodes,
+    nodeDataById
   );
+
+  const validThroughputSteps = chatStepRecords.filter(isStepValidForE2E);
   const { tokenTotals, modelsUsed } = aggregateScopedTokensAndModels(
     chatStepRecords,
-    validThroughputSteps
+    validThroughputSteps,
+    { sumAcrossNodes: activeScope === 'tree' }
   );
 
   const maxContextTokens = latestContextStep?.maxContextTokens || 0;
@@ -799,7 +625,10 @@ export async function collectConversationTelemetry(
       ),
       breakdownGroups: latestContextStep?.breakdownGroups || [],
     },
-    throughput: buildThroughputPayload(validThroughputSteps, recentWindowSize),
+    throughput: buildThroughputPayload(validThroughputSteps, recentWindowSize, {
+      activeScope,
+      selectedNodeEntries,
+    }),
     modelsUsed,
     globalModelRegistry: collectGlobalModelRegistry({
       homeDirPath,

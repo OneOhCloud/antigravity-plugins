@@ -646,10 +646,21 @@ export function resolveWorkspaceScopedConversations(
   if (workspaceConversations.length === 0) {
     const fallbackConv = matchedRequestedRoot || list[0];
     workspaceConversations = fallbackConv ? [fallbackConv] : [];
+  } else {
+    workspaceConversations.sort((a, b) => {
+      const aActive = a.lifecycleStatus === 'active' ? 1 : 0;
+      const bActive = b.lifecycleStatus === 'active' ? 1 : 0;
+      if (aActive !== bActive) return bActive - aActive;
+      return String(b.treeLastModifiedTime || b.lastModifiedTime).localeCompare(
+        String(a.treeLastModifiedTime || a.lastModifiedTime)
+      );
+    });
   }
 
   const defaultConversationId =
     requestedConversationId ||
+    workspaceConversations.find((c) => c.lifecycleStatus === 'active')
+      ?.conversationId ||
     workspaceConversations[0]?.conversationId ||
     list[0]?.conversationId ||
     '';

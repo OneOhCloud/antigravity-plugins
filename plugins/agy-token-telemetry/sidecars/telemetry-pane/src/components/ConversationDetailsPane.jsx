@@ -33,12 +33,7 @@ export function ConversationDetailsPane({ data, t }) {
   const validStepsRev = (
     Array.isArray(data?.stepRecords) ? data.stepRecords : []
   )
-    .filter(
-      (s) =>
-        s.outputTokens > 0 &&
-        !s.isSinglePacketFlush &&
-        Number(s.e2eTokPerSec) > 0
-    )
+    .filter((s) => s.outputTokens > 0 && Number(s.e2eTokPerSec) > 0)
     .slice()
     .reverse();
 

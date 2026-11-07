@@ -61,6 +61,25 @@ export function TopBar({
     });
   }, [telemetry?.availableConversations, t]);
 
+  const { primaryConversationOptions, historyConversationOptions } =
+    useMemo(() => {
+      const activeList = conversationOptions.filter(
+        (opt) => opt.lifecycleStatus === 'active'
+      );
+      if (activeList.length > 0) {
+        return {
+          primaryConversationOptions: activeList,
+          historyConversationOptions: conversationOptions.filter(
+            (opt) => opt.lifecycleStatus !== 'active'
+          ),
+        };
+      }
+      return {
+        primaryConversationOptions: conversationOptions.slice(0, 1),
+        historyConversationOptions: conversationOptions.slice(1),
+      };
+    }, [conversationOptions]);
+
   const globalConversationOptions = useMemo(() => {
     const list = Array.isArray(telemetry?.globalConversations)
       ? telemetry.globalConversations
@@ -207,11 +226,18 @@ export function TopBar({
         {activePanel === 'conversation' ? (
           <SessionSelectPopover
             id="conversationSelect"
-            options={conversationOptions}
+            options={primaryConversationOptions}
+            historyOptions={historyConversationOptions}
             value={selectedConversationId}
             onChange={onSelectConversation}
             tooltip={t('selectConvTooltip')}
-            defaultOpen={openMenu === 'conversation'}
+            defaultOpen={
+              openMenu === 'conversation' || openMenu === 'conversationHistory'
+            }
+            defaultSubView={
+              openMenu === 'conversationHistory' ? 'history' : 'primary'
+            }
+            t={t}
           />
         ) : (
           <SessionSelectPopover
@@ -221,6 +247,7 @@ export function TopBar({
             onChange={onSelectConversation}
             tooltip={globalSummaryText}
             defaultOpen={openMenu === 'globalConversation'}
+            t={t}
           />
         )}
 

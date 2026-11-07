@@ -43,7 +43,7 @@ function VelocityBarChart({ stepRecords, t }) {
   const svgWidth = 480;
 
   const validSteps = (Array.isArray(stepRecords) ? stepRecords : [])
-    .filter((s) => s.isValidThroughputSample && Number(s.e2eTokPerSec) > 0)
+    .filter((s) => s.outputTokens > 0 && Number(s.e2eTokPerSec) > 0)
     .slice(-maxBars);
 
   if (validSteps.length === 0) {
@@ -262,7 +262,7 @@ export function ConversationOverviewPane({ data, t }) {
           {cells.map((idx) => (
             <span
               key={idx}
-              className={`w-full h-full min-h-[8px] rounded-[2.5px] transition-colors duration-150 ${
+              className={`w-full h-full min-h-[8px] rounded-[2.5px] ${
                 idx < gridSpec.filledCells ? 'bg-[#1d1d1f]' : 'bg-[#e8e8ed]'
               }`}
             />
@@ -321,25 +321,25 @@ export function ConversationOverviewPane({ data, t }) {
                   className="py-[5px] px-0.5 flex flex-col gap-[3px] shrink-0"
                   key={`${m.modelDisplayName}-${m.responseModel}-${m.modelEnum}`}
                 >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[13.5px] font-semibold text-[#1d1d1f] tracking-[-0.01em]">
+                  <div className="flex items-baseline justify-between gap-2 min-w-0">
+                    <span className="text-[13.5px] font-semibold text-[#1d1d1f] tracking-[-0.01em] truncate">
                       {m.modelDisplayName}
                     </span>
-                    <span className="font-mono text-[13.5px] font-bold text-[#1d1d1f] whitespace-nowrap tabular-nums">
+                    <span className="font-mono text-[13.5px] font-bold text-[#1d1d1f] whitespace-nowrap tabular-nums shrink-0">
                       {fmtRate(m.weightedE2ETokPerSec)}{' '}
                       <span className="text-[12px] font-medium text-[#86868b] ml-1">
                         tok/s
                       </span>
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-2 font-mono text-[11.5px] tabular-nums">
-                    <span className="text-[#515154] font-medium">
+                  <div className="flex items-center justify-between gap-2 font-mono text-[11.5px] tabular-nums min-w-0">
+                    <span className="text-[#515154] font-medium truncate">
                       {m.responseModel}{' '}
                       <span className="text-[#86868b] text-[11px] whitespace-nowrap">
                         · {shortEnum}
                       </span>
                     </span>
-                    <span className="text-[#86868b] text-[11px] font-mono tabular-nums whitespace-nowrap">
+                    <span className="text-[#86868b] text-[11px] font-mono tabular-nums whitespace-nowrap shrink-0">
                       {t('fmtReqsCache')(
                         fmtInt(m.requestCount),
                         fmtPct(m.cacheHitRate)
