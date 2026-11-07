@@ -25,9 +25,11 @@ curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main
    - Computes `outputTokens / (timeToFirstToken + streamingDuration)` for valid generation steps (`outputTokens > 0` and `streamingDuration >= 50ms`, automatically filtering single-packet flush artifacts) across the latest request, last-5-request weighted window, and full-session average.
 4. **Context Window & Auto-Compact Inspection**:
    - Displays real-time context window utilization (`estimatedTokensUsed / maxContextTokens`), remaining token capacity, `~/.gemini/antigravity-cli/settings.json` `contextWindow` overrides, and `AGY_CLI_AUTO_COMPACT_OVERRIDE` environment / shell profile settings.
-5. **Bilingual UI (`en` / `zh-CN`) & 20x20x20 Studio Combinator**:
-   - Automatically selects English (`en`) or Simplified Chinese (`zh-CN`) based on Antigravity / OS locale, with a manual `EN` / `中文` toggle button in the top toolbar.
-   - Click the top-left preset badge (`L06·I20·C01`) to switch between 20 overview layouts (`L01`–`L20`), 20 pure vector SVG icons (`I01`–`I20`), and 20 color palettes (`C01`–`C20`).
+5. **React 18 Dual-Panel Architecture, Tri-State SVG Status & Bilingual UI (`en` / `zh-CN`)**:
+   - **Session Panel (Default)**: Features **Overview** (2x2 Bento KPI grid with End-to-End Velocity, Cumulative Tokens, Latest E2E Velocity, and Context Window, plus Recent E2E Velocity Trend and Session Model Cards) and **Details** (Token Composition and Valid Step Requests).
+   - **Global Panel**: Features **Model Registry** and **Config & Steps**, along with the global `EN` / `中文` language toggle.
+   - **Tri-State Vector SVG Status Indicators**: Custom React dropdown lists display a green dot (`#34C759`) for active conversations, a gray dot (`#86868B`) for inactive conversations, and a green checkmark (`#34C759`) for completed sub-agent conversations.
+   - Supports `1s`, `5s`, `10s`, `30s`, and `Manual` refresh intervals.
 
 ---
 

@@ -372,6 +372,178 @@ export function decodeGeneratorMetadataProto(input) {
 }
 
 /**
+ * Decodes `TrajectoryMetadata` protobuf binary buffer (from SQLite
+ * `trajectory_metadata_blob.data` or `ConversationSummary` field 17)
+ * to extract subagent hierarchy fields (`parentConversationId`, `rootConversationId`,
+ * `nestingDepth`, `agentName`, `agentRole`).
+ */
+export function decodeTrajectoryHierarchyMetadata(input) {
+  if (!input) {
+    return {
+      parentConversationId: '',
+      rootConversationId: '',
+      nestingDepth: 0,
+      agentName: '',
+      agentRole: '',
+      projectId: '',
+      workspaceUris: [],
+    };
+  }
+  const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input, 'hex');
+  let parentConversationId = '';
+  let rootConversationId = '';
+  let nestingDepth = 0;
+  let agentName = '';
+  let agentRole = '';
+  let projectId = '';
+  const workspaceUris = [];
+
+  for (const field of parseWireFields(buffer)) {
+    if (field.tag === 1 && field.wireType === 2) {
+      for (const wf of parseWireFields(field.value)) {
+        if (wf.tag === 1 && wf.wireType === 2) {
+          const uri = decodeUtf8(wf.value).trim();
+          if (uri && !workspaceUris.includes(uri)) {
+            workspaceUris.push(uri);
+          }
+        }
+      }
+    } else if (field.tag === 4 && field.wireType === 2) {
+      for (const sf of parseWireFields(field.value)) {
+        if (sf.tag === 1 && sf.wireType === 2 && !agentName) {
+          agentName = decodeUtf8(sf.value).trim();
+        }
+      }
+    } else if (field.tag === 5 && field.wireType === 2) {
+      parentConversationId = decodeUtf8(field.value).trim();
+    } else if (field.tag === 6 && field.wireType === 2) {
+      rootConversationId = decodeUtf8(field.value).trim();
+    } else if (field.tag === 7 && field.wireType === 2) {
+      const uri = decodeUtf8(field.value).trim();
+      if (uri && !workspaceUris.includes(uri)) {
+        workspaceUris.push(uri);
+      }
+    } else if (field.tag === 8 && field.wireType === 2) {
+      for (const af of parseWireFields(field.value)) {
+        if (af.tag === 1 && af.wireType === 2) {
+          const decodedName = decodeUtf8(af.value).trim();
+          if (decodedName) agentName = decodedName;
+        } else if (af.tag === 2 && af.wireType === 2) {
+          agentRole = decodeUtf8(af.value).trim();
+        }
+      }
+    } else if (field.tag === 17 && field.wireType === 0) {
+      nestingDepth = Math.max(0, toSafeNonNegativeInt(field.value));
+    } else if (field.tag === 18 && field.wireType === 2) {
+      projectId = decodeUtf8(field.value).trim();
+    }
+  }
+
+  return {
+    parentConversationId,
+    rootConversationId,
+    nestingDepth,
+    agentName,
+    agentRole,
+    projectId,
+    workspaceUris,
+  };
+}
+
+/**
+ * Decodes `ConversationSummary` protobuf binary buffer (from SQLite
+ * `conversation_summaries.raw_summary`) to extract title, subagent hierarchy,
+ * and execution lifecycle state (`statusEnum`, `notFullyIdle`, `killed`,
+ * `hasActivity`, `terminationReason`).
+ */
+export function decodeConversationSummaryProto(input) {
+  if (!input) {
+    return {
+      title: '',
+      statusEnum: 0,
+      notFullyIdle: false,
+      killed: false,
+      hasActivity: false,
+      terminationReason: 0,
+      parentConversationId: '',
+      rootConversationId: '',
+      nestingDepth: 0,
+      agentName: '',
+      agentRole: '',
+      projectId: '',
+      workspaceUris: [],
+    };
+  }
+  const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input, 'hex');
+  let title = '';
+  let fallbackTitle = '';
+  let statusEnum = 0;
+  let notFullyIdle = false;
+  let killed = false;
+  let hasActivity = false;
+  let terminationReason = 0;
+  const topWorkspaceUris = [];
+  let hierarchy = {
+    parentConversationId: '',
+    rootConversationId: '',
+    nestingDepth: 0,
+    agentName: '',
+    agentRole: '',
+    projectId: '',
+    workspaceUris: [],
+  };
+
+  for (const field of parseWireFields(buffer)) {
+    if (field.tag === 1 && field.wireType === 2) {
+      title = decodeUtf8(field.value).trim();
+    } else if (field.tag === 5 && field.wireType === 0) {
+      statusEnum = Math.max(0, toSafeNonNegativeInt(field.value));
+    } else if (field.tag === 9 && field.wireType === 2) {
+      for (const wf of parseWireFields(field.value)) {
+        if (wf.tag === 1 && wf.wireType === 2) {
+          const uri = decodeUtf8(wf.value).trim();
+          if (uri && !topWorkspaceUris.includes(uri)) {
+            topWorkspaceUris.push(uri);
+          }
+        }
+      }
+    } else if (field.tag === 15 && field.wireType === 2) {
+      for (const tf of parseWireFields(field.value)) {
+        if (tf.tag === 1 && tf.wireType === 2) {
+          fallbackTitle = decodeUtf8(tf.value).trim();
+        }
+      }
+    } else if (field.tag === 17 && field.wireType === 2) {
+      hierarchy = decodeTrajectoryHierarchyMetadata(field.value);
+    } else if (field.tag === 21 && field.wireType === 0) {
+      notFullyIdle = toSafeNonNegativeInt(field.value) !== 0;
+    } else if (field.tag === 23 && field.wireType === 0) {
+      killed = toSafeNonNegativeInt(field.value) !== 0;
+    } else if (field.tag === 26 && field.wireType === 0) {
+      hasActivity = toSafeNonNegativeInt(field.value) !== 0;
+    } else if (field.tag === 28 && field.wireType === 0) {
+      terminationReason = Math.max(0, toSafeNonNegativeInt(field.value));
+    }
+  }
+
+  const mergedWorkspaceUris = [
+    ...(hierarchy.workspaceUris || []),
+    ...topWorkspaceUris,
+  ].filter((u, idx, arr) => u && arr.indexOf(u) === idx);
+
+  return {
+    title: title || fallbackTitle,
+    statusEnum,
+    notFullyIdle,
+    killed,
+    hasActivity,
+    terminationReason,
+    ...hierarchy,
+    workspaceUris: mergedWorkspaceUris,
+  };
+}
+
+/**
  * Parses a Protobuf JSON duration string such as `"8.233905167s"` into seconds.
  */
 export function parseDurationStringSeconds(durationStr) {

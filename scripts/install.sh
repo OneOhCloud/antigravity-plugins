@@ -43,6 +43,10 @@ SOURCE_ROOT="$(resolve_source_dir)"
 PLUGINS_SRC="${SOURCE_ROOT}/plugins"
 mkdir -p "${TARGET_ROOT}"
 
+if [[ -f "${SOURCE_ROOT}/scripts/build_ui.mjs" && -d "${SOURCE_ROOT}/node_modules/esbuild" ]]; then
+  node "${SOURCE_ROOT}/scripts/build_ui.mjs"
+fi
+
 requested_plugins=("$@")
 if [[ ${#requested_plugins[@]} -eq 0 ]]; then
   while IFS= read -r dir; do
@@ -59,9 +63,10 @@ for plugin_name in "${requested_plugins[@]}"; do
   fi
 
   dest_dir="${TARGET_ROOT}/${plugin_name}"
+  rm -rf "${dest_dir}"
   mkdir -p "${dest_dir}"
   cp -R "${src_dir}/." "${dest_dir}/"
-  rm -rf "${dest_dir}/test" "${dest_dir}/tests" "${dest_dir}/.local"
+  rm -rf "${dest_dir}/test" "${dest_dir}/tests" "${dest_dir}/.local" "${dest_dir}/sidecars/telemetry-pane/src"
 
   if command -v agy >/dev/null 2>&1; then
     agy plugin validate "${dest_dir}" >/dev/null 2>&1 || true

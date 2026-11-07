@@ -33,7 +33,7 @@ git clone https://github.com/OneOhCloud/antigravity-plugins.git
 
 | Plugin Name | Category | Version | Languages | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.md) | Sidecar Aux Pane / Telemetry | `1.0.0` | `en`, `zh-CN` | Real-time session token usage, `gen_metadata` readable model & endpoint mapping, end-to-end `tok/s` velocity, and `contextWindow` / `AGY_CLI_AUTO_COMPACT_OVERRIDE` telemetry pane. |
+| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.md) | Sidecar Aux Pane / Telemetry | `1.1.0` | `en`, `zh-CN` | Real-time session token usage, `gen_metadata` readable model & endpoint mapping, end-to-end `tok/s` velocity, and `contextWindow` / `AGY_CLI_AUTO_COMPACT_OVERRIDE` telemetry pane. |
 
 ---
 
@@ -56,10 +56,17 @@ antigravity-plugins/
 │           └── telemetry-pane/
 │               ├── sidecar.json             # Sidecar process & auxiliary pane config
 │               ├── main.mjs                 # Sidecar HTTP/API entrypoint
-│               ├── collector.mjs            # Read-only RPC & SQLite telemetry collector
+│               ├── collector.mjs            # Telemetry aggregation & model registry facade
+│               ├── session_tree.mjs         # Multi-surface discovery & DFS subagent tree builder
+│               ├── sqlite_rpc.mjs           # Read-only SQLite URI & Language Server RPC client
+│               ├── runtime_env.mjs          # Host locale & runtime config collector
 │               ├── proto_decoder.mjs        # Zero-dependency Protobuf wire decoder
-│               └── ui.html                  # Apple HIG telemetry UI (EN / 中文)
+│               ├── dist/                    # Compiled production React 18 + Tailwind CSS v4 bundle
+│               │   ├── index.html           # Production HTML entry
+│               │   └── assets/              # Minified app.css & app.js
+│               └── src/                     # Modular React 18 + Tailwind CSS v4 source (.jsx)
 ├── scripts/
+│   ├── build_ui.mjs                         # Production React 18 + Tailwind CSS v4 compiler
 │   └── install.sh                           # One-step installer script
 ├── LICENSE                                  # MIT License
 ├── README.md                                # Repository documentation (English)

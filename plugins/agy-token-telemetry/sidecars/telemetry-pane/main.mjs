@@ -1,6 +1,7 @@
 /**
  * @fileoverview Sidecar backend entrypoint for the Antigravity Token & Model
- * Telemetry Auxiliary Pane (`SIDECAR_UI_ENTRYPOINT_AUX_PANE`).
+ * Telemetry Auxiliary Pane (`SIDECAR_UI_ENTRYPOINT_AUX_PANE`). Serves the
+ * compiled production React + Tailwind CSS build from `dist/`.
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -13,7 +14,9 @@ import {
 } from './collector.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const UI_HTML_PATH = join(__dirname, 'ui.html');
+const DIST_HTML_PATH = join(__dirname, 'dist', 'index.html');
+const DIST_CSS_PATH = join(__dirname, 'dist', 'assets', 'app.css');
+const DIST_JS_PATH = join(__dirname, 'dist', 'assets', 'app.js');
 const THEME_PREFS_PATH = join(
   homedir(),
   '.gemini',
@@ -26,17 +29,14 @@ function readThemePrefs() {
     if (existsSync(THEME_PREFS_PATH)) {
       const parsed = JSON.parse(readFileSync(THEME_PREFS_PATH, 'utf-8'));
       return {
-        layoutId: parsed.layoutId || 'L06',
-        iconId: parsed.iconId || 'I20',
-        colorId: parsed.colorId || 'C01',
-        lang: parsed.lang || '',
+        lang: typeof parsed.lang === 'string' ? parsed.lang : '',
         updatedAt: parsed.updatedAt || 0,
       };
     }
   } catch {
     // Fallback to defaults
   }
-  return { layoutId: 'L06', iconId: 'I20', colorId: 'C01', lang: '', updatedAt: 0 };
+  return { lang: '', updatedAt: 0 };
 }
 
 function writeThemePrefs(nextPrefs) {
@@ -57,14 +57,27 @@ async function loadSidecarSdk() {
   try {
     return await import('sidecar_sdk');
   } catch {
-    const fallbackSdkPath = join(
-      homedir(),
-      '.gemini',
-      'config',
-      'node_modules',
-      'sidecar_sdk',
-      'index.mjs'
-    );
+    const candidates = [
+      join(
+        homedir(),
+        '.gemini',
+        'antigravity',
+        'lib',
+        'node_modules',
+        'sidecar_sdk',
+        'index.mjs'
+      ),
+      join(
+        homedir(),
+        '.gemini',
+        'config',
+        'node_modules',
+        'sidecar_sdk',
+        'index.mjs'
+      ),
+    ];
+    const fallbackSdkPath =
+      candidates.find((candidate) => existsSync(candidate)) || candidates[0];
     return await import(pathToFileURL(fallbackSdkPath).href);
   }
 }
@@ -73,21 +86,52 @@ export async function startTelemetrySidecar() {
   const { SidecarApp, Response } = await loadSidecarSdk();
   const app = new SidecarApp();
 
-  const serveUiPage = () => readFileSync(UI_HTML_PATH, 'utf-8');
+  const noCacheHeaders = {
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    Pragma: 'no-cache',
+  };
+  const serveUiPage = () =>
+    new Response(readFileSync(DIST_HTML_PATH, 'utf-8'), {
+      contentType: 'text/html; charset=utf-8',
+      headers: noCacheHeaders,
+    });
   app.page('/', serveUiPage);
   app.page('/index.html', serveUiPage);
   app.page('/host.html', serveUiPage);
+  app.page(
+    '/assets/app.css',
+    () =>
+      new Response(readFileSync(DIST_CSS_PATH, 'utf-8'), {
+        contentType: 'text/css; charset=utf-8',
+        headers: noCacheHeaders,
+      })
+  );
+  app.page(
+    '/assets/app.js',
+    () =>
+      new Response(readFileSync(DIST_JS_PATH, 'utf-8'), {
+        contentType: 'application/javascript; charset=utf-8',
+        headers: noCacheHeaders,
+      })
+  );
 
   const handleTelemetryRequest = async (data = {}) => {
     const requestedConvId =
       typeof data.conversationId === 'string' && data.conversationId.trim()
         ? data.conversationId.trim()
         : app.config.conversationId || '';
+    const requestedScope =
+      typeof data.scope === 'string' && data.scope.trim()
+        ? data.scope.trim()
+        : '';
+    const rawWorkspaceUris = data.workspaceUris ?? data.workspaceUri ?? [];
     const recentWindowSize =
       Number(data.recentWindowSize) > 0 ? Number(data.recentWindowSize) : 5;
 
     const payload = await collectConversationTelemetry(requestedConvId, {
       recentWindowSize,
+      scope: requestedScope,
+      workspaceUris: rawWorkspaceUris,
     });
     payload.themePrefs = readThemePrefs();
     return payload;
@@ -98,12 +142,9 @@ export async function startTelemetrySidecar() {
 
   const handleThemeRequest = async (data = {}) => {
     let prefs = readThemePrefs();
-    if (data.layoutId || data.iconId || data.colorId || data.lang !== undefined) {
+    if (data.lang !== undefined) {
       prefs = writeThemePrefs({
-        layoutId: data.layoutId || prefs.layoutId,
-        iconId: data.iconId || prefs.iconId,
-        colorId: data.colorId || prefs.colorId,
-        lang: data.lang !== undefined ? String(data.lang) : prefs.lang,
+        lang: String(data.lang),
       });
     }
     return new Response(JSON.stringify(prefs), {

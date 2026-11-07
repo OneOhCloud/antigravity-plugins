@@ -33,7 +33,7 @@ git clone https://github.com/OneOhCloud/antigravity-plugins.git
 
 | 插件名称 | 类型 | 版本 | 支持语言 | 功能简介 |
 | :--- | :--- | :--- | :--- | :--- |
-| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.zh-CN.md) | Sidecar 侧边栏面板 / 遥测 | `1.0.0` | `en`, `zh-CN` | 实时统计会话 Token 消耗、`gen_metadata` 模型可读名称与底层端点标识映射、单步有效请求端到端 `tok/s` 速率，并展示 `AGY_CLI_AUTO_COMPACT_OVERRIDE` 与 `contextWindow` 状态。 |
+| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.zh-CN.md) | Sidecar 侧边栏面板 / 遥测 | `1.1.0` | `en`, `zh-CN` | 实时统计会话 Token 消耗、`gen_metadata` 模型可读名称与底层端点标识映射、单步有效请求端到端 `tok/s` 速率，并展示 `AGY_CLI_AUTO_COMPACT_OVERRIDE` 与 `contextWindow` 状态。 |
 
 ---
 
@@ -55,11 +55,18 @@ antigravity-plugins/
 │       └── sidecars/
 │           └── telemetry-pane/
 │               ├── sidecar.json             # Sidecar 进程与侧边栏视图配置
-│               ├── main.mjs                 # Sidecar 服务入口
-│               ├── collector.mjs            # 只读 RPC 与 SQLite 遥测采集器
+│               ├── main.mjs                 # Sidecar 服务与静态资源入口
+│               ├── collector.mjs            # 遥测聚合与全量模型字典门面
+│               ├── session_tree.mjs         # 双端会话发现与多级子代理深度优先树构建
+│               ├── sqlite_rpc.mjs           # 只读 SQLite URI 与 Language Server RPC 客户端
+│               ├── runtime_env.mjs          # 宿主语言识别与运行环境配置采集
 │               ├── proto_decoder.mjs        # 零依赖 Protobuf wire-format 解码器
-│               └── ui.html                  # Apple HIG 风格双语遥测面板 (EN / 中文)
+│               ├── dist/                    # React 18 + Tailwind CSS v4 生产级编译产物
+│               │   ├── index.html           # 生产级 HTML 入口
+│               │   └── assets/              # 压缩后的 app.css 与 app.js
+│               └── src/                     # 模块化 React 18 + Tailwind CSS v4 组件源码 (.jsx)
 ├── scripts/
+│   ├── build_ui.mjs                         # React 18 + Tailwind CSS v4 生产编译脚本
 │   └── install.sh                           # 一键安装脚本
 ├── LICENSE                                  # MIT 开源许可协议
 ├── README.md                                # 仓库英文主文档（默认）

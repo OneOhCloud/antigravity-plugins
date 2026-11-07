@@ -1,0 +1,17 @@
+{
+  "name": "antigravity-plugins",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build_ui.mjs",
+    "test": "node --test .local/tests/collector.test.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.5",
+    "esbuild": "^0.25.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^4.3.5"
+  }
+}
