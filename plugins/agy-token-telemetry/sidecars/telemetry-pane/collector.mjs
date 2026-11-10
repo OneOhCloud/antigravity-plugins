@@ -18,6 +18,7 @@ import {
   findConversationDbOnDisk,
   getGeminiRootDir,
   readGeneratorMetadataFromSqlite,
+  readLatestCheckpointFromSqlite,
   readStepTimestampsFromTranscript,
 } from './sqlite_rpc.mjs';
 import {
@@ -171,7 +172,7 @@ function resolveTargetRootAndScope(
     subagentsList.map((s) => [s.conversationId, s])
   );
 
-  let activeScope = 'tree';
+  let activeScope = 'root';
   if (normalizedScopeParam === 'root') {
     activeScope = 'root';
   } else if (normalizedScopeParam === 'tree') {
@@ -232,7 +233,10 @@ async function collectNodeTelemetryEntry({
   );
 
   let nodePlannerMaxOutputTokens = 0;
+  let nodeFirstContextStep = null;
   let nodeLatestContextStep = null;
+  let nodeLatestBreakdownGroups = [];
+  let maxCoveredStepIndex = -1;
   let nodeInputTokens = 0;
   let nodeCacheReadTokens = 0;
   let nodeOutputTokens = 0;
@@ -244,6 +248,17 @@ async function collectNodeTelemetryEntry({
       nodePlannerMaxOutputTokens = rec.plannerMaxOutputTokens;
     }
     if (!rec.hasChatModel) continue;
+
+    // Skip empty canceled pre-compact generator metadata records that executed no steps
+    if (
+      rec.stepIndices.length === 0 &&
+      rec.inputTokens === 0 &&
+      rec.cacheReadTokens === 0 &&
+      rec.outputTokens === 0 &&
+      rec.responseModel === 'unspecified'
+    ) {
+      continue;
+    }
 
     const catalogEntry =
       modelCatalogByLabel.get(rec.modelDisplayName) ||
@@ -277,15 +292,72 @@ async function collectNodeTelemetryEntry({
     nodeCacheReadTokens += enrichedStep.cacheReadTokens;
     nodeOutputTokens += enrichedStep.outputTokens;
 
+    const stepMaxIdx = Math.max(
+      enrichedStep.lastStepIndex,
+      Number(enrichedStep.customMetadata?.last_step_index || -1)
+    );
+    if (stepMaxIdx > maxCoveredStepIndex) {
+      maxCoveredStepIndex = stepMaxIdx;
+    }
+
     if (
       enrichedStep.maxContextTokens > 0 ||
       enrichedStep.estimatedTokensUsed > 0
     ) {
+      if (!nodeFirstContextStep && enrichedStep.estimatedTokensUsed > 0) {
+        nodeFirstContextStep = enrichedStep;
+      }
       nodeLatestContextStep = enrichedStep;
+      if (enrichedStep.breakdownGroups?.length > 0) {
+        nodeLatestBreakdownGroups = enrichedStep.breakdownGroups;
+      }
     }
     if (isStepValidForE2E(enrichedStep)) {
       nodeValidSteps.push(enrichedStep);
     }
+  }
+
+  const latestCheckpoint = readLatestCheckpointFromSqlite(
+    node.dbPath,
+    geminiRoot,
+    node.conversationId
+  );
+  if (latestCheckpoint && latestCheckpoint.stepIndex > maxCoveredStepIndex) {
+    const maxContextTokens = nodeLatestContextStep?.maxContextTokens || 256000;
+    const nonChatGroups = (nodeLatestBreakdownGroups || []).filter(
+      (g) => g.name !== 'Chat Messages' && g.totalTokens > 0
+    );
+    const baseNonChatTokens =
+      nonChatGroups.length > 0
+        ? nonChatGroups.reduce((sum, g) => sum + g.totalTokens, 0)
+        : Math.max(
+            0,
+            (nodeFirstContextStep?.estimatedTokensUsed || 24000) - 1000
+          );
+    const checkpointChatTokens =
+      (latestCheckpoint.responseOutputTokens ||
+        latestCheckpoint.outputTokens ||
+        4500) + 1800;
+    const postCompactEstimatedTokens = Math.min(
+      maxContextTokens,
+      baseNonChatTokens + checkpointChatTokens
+    );
+
+    const updatedBreakdown =
+      nonChatGroups.length > 0
+        ? [
+            ...nonChatGroups,
+            { name: 'Chat Messages', totalTokens: checkpointChatTokens },
+          ]
+        : nodeLatestContextStep?.breakdownGroups || [];
+
+    nodeLatestContextStep = {
+      ...(nodeLatestContextStep || {}),
+      estimatedTokensUsed: postCompactEstimatedTokens,
+      maxContextTokens,
+      breakdownGroups: updatedBreakdown,
+      compactedAtStepIndex: latestCheckpoint.stepIndex,
+    };
   }
 
   const nodeTp = computeThroughputWindowSummary(nodeValidSteps);
@@ -521,7 +593,7 @@ export async function collectConversationTelemetry(
   if (!rawRequestedId) {
     return {
       conversationId: '',
-      activeScope: 'tree',
+      activeScope: 'root',
       scopedConversationId: '',
       conversationMeta: null,
       sessionHierarchy: null,

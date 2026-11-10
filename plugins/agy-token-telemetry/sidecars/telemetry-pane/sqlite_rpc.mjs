@@ -9,6 +9,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
+  decodeCheckpointStepMetadata,
   decodeGeneratorMetadataProto,
   decodeTrajectoryHierarchyMetadata,
 } from './proto_decoder.mjs';
@@ -22,6 +23,7 @@ export const APP_SURFACES = Object.freeze([
 ]);
 
 const sqliteFileCache = new Map();
+const sqliteCheckpointCache = new Map();
 const sqliteHierarchyCache = new Map();
 const transcriptFileCache = new Map();
 
@@ -216,6 +218,106 @@ export function readGeneratorMetadataFromSqlite(dbPath) {
     sqliteFileCache.set(dbPath, { cacheKey, records });
   }
   return records;
+}
+
+/**
+ * Reads the latest completed `CORTEX_STEP_TYPE_CHECKPOINT` (`step_type = 23`)
+ * step from a conversation's SQLite `steps` table (or `transcript.jsonl` fallback),
+ * caching by file mtime + WAL mtime.
+ */
+export function readLatestCheckpointFromSqlite(
+  dbPath,
+  geminiRoot = '',
+  conversationId = ''
+) {
+  if (dbPath && existsSync(dbPath)) {
+    let cacheKey = '';
+    try {
+      const dbStat = statSync(dbPath);
+      if (dbStat.size > 0) {
+        const walPath = `${dbPath}-wal`;
+        const walMtime = existsSync(walPath) ? statSync(walPath).mtimeMs : 0;
+        cacheKey = `${dbStat.mtimeMs}:${dbStat.size}:${walMtime}`;
+        const cached = sqliteCheckpointCache.get(dbPath);
+        if (cached && cached.cacheKey === cacheKey) {
+          return cached.checkpoint;
+        }
+      }
+    } catch {
+      // Proceed without cache on stat failure
+    }
+
+    const rows = runSqliteJsonQuery(
+      dbPath,
+      'SELECT idx, status, hex(metadata) AS hex_meta FROM steps WHERE step_type = 23 AND status IN (3, 5) ORDER BY idx DESC LIMIT 1;'
+    );
+    const row = rows[0];
+    let checkpoint = null;
+    if (row && row.idx !== undefined) {
+      try {
+        checkpoint = decodeCheckpointStepMetadata(
+          row.hex_meta || '',
+          Number(row.idx)
+        ) || {
+          stepIndex: Number(row.idx),
+          createdAt: '',
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheReadTokens: 0,
+          thinkingOutputTokens: 0,
+          responseOutputTokens: 0,
+        };
+      } catch {
+        checkpoint = null;
+      }
+    }
+    if (cacheKey) {
+      sqliteCheckpointCache.set(dbPath, { cacheKey, checkpoint });
+    }
+    if (checkpoint) {
+      return checkpoint;
+    }
+  }
+
+  if (geminiRoot && conversationId) {
+    for (const surface of APP_SURFACES) {
+      const transcriptPath = join(
+        geminiRoot,
+        surface.id,
+        'brain',
+        conversationId,
+        '.system_generated',
+        'logs',
+        'transcript.jsonl'
+      );
+      if (!existsSync(transcriptPath)) continue;
+      try {
+        const content = readFileSync(transcriptPath, 'utf-8');
+        let latestCp = null;
+        for (const line of content.split(/\r?\n/)) {
+          if (!line.includes('"CHECKPOINT"')) continue;
+          const parsed = JSON.parse(line);
+          if (parsed.type === 'CHECKPOINT' && parsed.status === 'DONE') {
+            const outTok = Number(parsed.output_tokens || 0);
+            latestCp = {
+              stepIndex: Number(parsed.step_index),
+              createdAt: String(parsed.created_at || ''),
+              inputTokens: Number(parsed.input_tokens || 0),
+              outputTokens: outTok,
+              cacheReadTokens: Number(parsed.cache_read_tokens || 0),
+              thinkingOutputTokens: 0,
+              responseOutputTokens: outTok,
+            };
+          }
+        }
+        if (latestCp) return latestCp;
+      } catch {
+        // Ignore transcript parse errors
+      }
+    }
+  }
+
+  return null;
 }
 
 /**

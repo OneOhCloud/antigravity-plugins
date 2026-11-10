@@ -43,8 +43,13 @@ SOURCE_ROOT="$(resolve_source_dir)"
 PLUGINS_SRC="${SOURCE_ROOT}/plugins"
 mkdir -p "${TARGET_ROOT}"
 
-if [[ -f "${SOURCE_ROOT}/scripts/build_ui.mjs" && -d "${SOURCE_ROOT}/node_modules/esbuild" ]]; then
-  node "${SOURCE_ROOT}/scripts/build_ui.mjs"
+if [[ -f "${SOURCE_ROOT}/scripts/build_ui.mjs" ]]; then
+  if [[ ! -d "${SOURCE_ROOT}/node_modules/esbuild" && -f "${SOURCE_ROOT}/package.json" && -z "${cleanup_dir}" ]]; then
+    (cd "${SOURCE_ROOT}" && npm install --prefer-offline --no-audit --no-fund)
+  fi
+  if [[ -d "${SOURCE_ROOT}/node_modules/esbuild" ]]; then
+    node "${SOURCE_ROOT}/scripts/build_ui.mjs"
+  fi
 fi
 
 requested_plugins=("$@")

@@ -33,7 +33,7 @@ git clone https://github.com/OneOhCloud/antigravity-plugins.git
 
 | Plugin Name | Category | Version | Languages | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.md) | Sidecar Aux Pane / Telemetry | `1.2.0` | `en`, `zh-CN` | Real-time session token usage, `gen_metadata` readable model & endpoint mapping, end-to-end `tok/s` velocity, and `contextWindow` / `AGY_CLI_AUTO_COMPACT_OVERRIDE` telemetry pane. |
+| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.md) | Sidecar Aux Pane / Telemetry | `1.2.1` | `en`, `zh-CN` | Real-time session token usage, `gen_metadata` readable model & endpoint mapping, end-to-end `tok/s` velocity, and `contextWindow` / `AGY_CLI_AUTO_COMPACT_OVERRIDE` telemetry pane. |
 
 ---
 

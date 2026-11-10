@@ -39,8 +39,6 @@ function computeContextWindowGrid(usedTokens, maxTokens) {
 function VelocityBarChart({ stepRecords, t }) {
   const { fmtSec } = getI18nBridge();
   const maxBars = 12;
-  const svgHeight = 76;
-  const svgWidth = 480;
 
   const validSteps = (Array.isArray(stepRecords) ? stepRecords : [])
     .filter((s) => s.outputTokens > 0 && Number(s.e2eTokPerSec) > 0)
@@ -58,56 +56,42 @@ function VelocityBarChart({ stepRecords, t }) {
     ...validSteps.map((s) => Number(s.e2eTokPerSec) || 0),
     10
   );
-  const padTop = 15;
-  const padBottom = 16;
-  const chartH = svgHeight - padTop - padBottom;
-  const slotW = svgWidth / validSteps.length;
-  const barW = Math.min(20, Math.max(8, slotW * 0.44));
 
   return (
-    <svg
-      viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-      width="100%"
-      height={svgHeight}
-      preserveAspectRatio="none"
+    <div
+      className="h-[76px] w-full flex items-end justify-between gap-0.5 pt-0.5 pb-0.5 select-none"
+      role="img"
+      aria-label={t('ovRecentTrend')}
     >
       {validSteps.map((step, idx) => {
-        const xCenter = idx * slotW + slotW / 2;
-        const hE2E = Math.max(4, (step.e2eTokPerSec / maxRate) * chartH);
-        const yE2E = padTop + chartH - hE2E;
+        const heightPct = Math.max(
+          8,
+          Math.round(((Number(step.e2eTokPerSec) || 0) / maxRate) * 76)
+        );
         const stepLabel = formatStepSpan(step, true);
         const titleText = `Step ${(step.stepIndices || []).join(',')} | ${step.modelDisplayName} (${step.responseModel}): E2E ${step.e2eTokPerSec.toFixed(1)} tok/s · TTFT ${fmtSec(step.timeToFirstTokenSec)}`;
         return (
-          <g key={`${step.trajectoryId || 'root'}-${step.firstStepIndex}-${idx}`}>
-            <title>{titleText}</title>
-            <rect
-              x={(xCenter - barW / 2).toFixed(1)}
-              y={yE2E.toFixed(1)}
-              width={barW.toFixed(1)}
-              height={hE2E.toFixed(1)}
-              rx="3.5"
-              className="fill-[#1d1d1f]"
-            />
-            <text
-              x={xCenter.toFixed(1)}
-              y={(yE2E - 3.2).toFixed(1)}
-              textAnchor="middle"
-              className="font-mono text-[9.5px] font-semibold fill-[#515154]"
-            >
-              {Math.round(step.e2eTokPerSec)}
-            </text>
-            <text
-              x={xCenter.toFixed(1)}
-              y={svgHeight - 3}
-              textAnchor="middle"
-              className="font-mono text-[9px] fill-[#86868b]"
-            >
+          <div
+            key={`${step.trajectoryId || 'root'}-${step.firstStepIndex}-${idx}`}
+            title={titleText}
+            className="flex-1 min-w-0 h-full flex flex-col items-center justify-end gap-1"
+          >
+            <div className="flex-1 w-full flex flex-col items-center justify-end gap-[2px] min-h-0">
+              <span className="font-mono text-[9.5px] font-semibold text-[#515154] leading-none tabular-nums shrink-0">
+                {Math.round(step.e2eTokPerSec)}
+              </span>
+              <div
+                className="w-full max-w-[18px] min-h-[4px] rounded-[3.5px] bg-[#1d1d1f] shrink-0"
+                style={{ height: `${heightPct}%` }}
+              />
+            </div>
+            <span className="font-mono text-[8.5px] tracking-[-0.04em] text-[#86868b] leading-none tabular-nums whitespace-nowrap shrink-0">
               {stepLabel}
-            </text>
-          </g>
+            </span>
+          </div>
         );
       })}
-    </svg>
+    </div>
   );
 }
 
@@ -152,13 +136,13 @@ export function ConversationOverviewPane({ data, t }) {
       id="pane-overview"
     >
       <div className="shrink-0 grid grid-cols-2 gap-2 items-stretch">
-        <div className="bg-[#f5f5f7] rounded-[16px] py-2.5 px-3.5 flex flex-col gap-[5px] shrink-0 min-w-0 overflow-hidden">
-          <div className="flex items-baseline justify-between gap-2 shrink-0">
-            <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] truncate">
+        <div className="bg-[#f5f5f7] rounded-[16px] py-2.5 px-2.5 flex flex-col gap-[5px] shrink-0 min-w-0 overflow-hidden">
+          <div className="flex items-baseline justify-between gap-1.5 shrink-0">
+            <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] shrink-0 whitespace-nowrap">
               {t('tkE2ETitle')}
             </span>
             <span
-              className="font-mono text-[11px] text-[#86868b] tabular-nums truncate"
+              className="font-mono text-[10.5px] text-[#86868b] tabular-nums truncate"
               id="tkSampleCount"
             >
               {t('fmtValidSamples')(overall.sampleCount || 0)}
@@ -176,7 +160,7 @@ export function ConversationOverviewPane({ data, t }) {
             </span>
           </div>
           <div
-            className="font-mono text-[11px] text-[#515154] tabular-nums truncate"
+            className="font-mono text-[9.5px] sm:text-[10.5px] tracking-[-0.04em] text-[#515154] tabular-nums whitespace-nowrap truncate"
             id="tkE2ESub"
           >
             {t('fmtVelocityGroupSub')(
@@ -187,13 +171,13 @@ export function ConversationOverviewPane({ data, t }) {
           </div>
         </div>
 
-        <div className="bg-[#f5f5f7] rounded-[16px] py-2.5 px-3.5 flex flex-col gap-[5px] shrink-0 min-w-0 overflow-hidden">
-          <div className="flex items-baseline justify-between gap-2 shrink-0">
-            <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] truncate">
+        <div className="bg-[#f5f5f7] rounded-[16px] py-2.5 px-2.5 flex flex-col gap-[5px] shrink-0 min-w-0 overflow-hidden">
+          <div className="flex items-baseline justify-between gap-1.5 shrink-0">
+            <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] shrink-0 whitespace-nowrap">
               {t('tkTotalTitle')}
             </span>
             <span
-              className="font-mono text-[11px] text-[#86868b] tabular-nums truncate"
+              className="font-mono text-[10.5px] text-[#86868b] tabular-nums truncate"
               id="tkCacheMeta"
             >
               {t('fmtCacheHit')(fmtPct(totals.cacheHitRate))}
@@ -211,7 +195,7 @@ export function ConversationOverviewPane({ data, t }) {
             </span>
           </div>
           <div
-            className="font-mono text-[11px] text-[#515154] tabular-nums truncate"
+            className="font-mono text-[9.5px] sm:text-[10.5px] tracking-[-0.04em] text-[#515154] tabular-nums whitespace-nowrap truncate"
             id="tkPromptSub"
           >
             {t('fmtTotalInOut')(
@@ -223,12 +207,12 @@ export function ConversationOverviewPane({ data, t }) {
       </div>
 
       <div
-        className="bg-[#f5f5f7] rounded-[16px] py-2.5 px-3.5 flex flex-col gap-[7px] shrink-0 min-w-0 min-h-[88px] overflow-hidden"
+        className="bg-[#f5f5f7] rounded-[16px] py-2.5 px-3 flex flex-col gap-[7px] shrink-0 min-w-0 min-h-[88px] overflow-hidden"
         id="ovCtxCard"
       >
-        <div className="flex items-baseline justify-between gap-2 shrink-0">
-          <div className="inline-flex items-baseline gap-[7px] min-w-0">
-            <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] truncate">
+        <div className="flex items-baseline justify-between gap-1.5 shrink-0">
+          <div className="inline-flex items-baseline gap-[6px] shrink-0 whitespace-nowrap">
+            <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] whitespace-nowrap">
               {t('ovContextWindow')}
             </span>
             <span
@@ -239,7 +223,7 @@ export function ConversationOverviewPane({ data, t }) {
             </span>
           </div>
           <span
-            className="font-mono text-[11px] text-[#86868b] tabular-nums truncate"
+            className="font-mono text-[10.5px] tracking-[-0.03em] text-[#86868b] tabular-nums whitespace-nowrap truncate"
             id="ovCtxMeta"
           >
             {t('fmtContextWindowMeta')(
@@ -251,7 +235,7 @@ export function ConversationOverviewPane({ data, t }) {
           </span>
         </div>
         <div
-          className="flex-1 w-full min-h-[44px] grid gap-[3px]"
+          className="h-[44px] w-full grid gap-[3px]"
           id="ovCtxBar"
           title={gridTooltip}
           style={{

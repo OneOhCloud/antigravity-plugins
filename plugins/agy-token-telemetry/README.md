@@ -21,13 +21,13 @@ curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main
    - Visualizes input cache hit ratio (`cacheReadTokens / (inputTokens + cacheReadTokens)`) and thinking vs. response output token proportions.
 2. **Readable Model Name & Underlying Endpoint Mapping**:
    - Extracts `modelDisplayName` (e.g. `Gemini 4 Argon (High)`), `responseModel` endpoint ID (e.g. `gemini-4-argon`), `model` enum (`MODEL_PLACEHOLDER_*`), and `apiProvider` across both the active session and a global local registry of up to 60 conversations.
-3. **End-to-End (`E2E`) `tok/s` Velocity & Full Session-Tree Total Throughput**:
-   - Computes `outputTokens / (timeToFirstToken + streamingDuration)` for each agent node (`outputTokens > 0 && totalDurationSec > 0`) and sums throughput, sample counts, token consumption, context window capacity, and model velocity across the main session and all sub-agents when `All (Main + Sub)` scope is selected.
-4. **Context Window Wafer Matrix & Auto-Compact Inspection**:
-   - Displays real-time context window utilization (`estimatedTokensUsed / maxContextTokens`) with a full-width wafer grid matrix, remaining token capacity, `~/.gemini/antigravity-cli/settings.json` `contextWindow` overrides, and `AGY_CLI_AUTO_COMPACT_OVERRIDE` environment / shell profile settings.
-5. **React 18 + Tailwind CSS v4 Production Architecture, Two-Level Project History Menu & Bilingual UI (`en` / `zh-CN`)**:
-   - **Session Panel (Default)**: Scoped to the active workspace, featuring a two-level conversation selector (active session in the primary list, historical project sessions tucked into an in-place constant-height `History Sessions` secondary view), **Overview**, and **Details**.
-   - **Global Panel**: Features **Global Sessions**, **Model Registry**, and **Config & Steps**, along with the `⋯` secondary actions menu (`EN` / `中文` toggle and refresh interval).
+3. **End-to-End (`E2E`) `tok/s` Velocity & Sub-Session Scope Control**:
+   - Defaults to **Main Session Only (`root`)** scope so sub-agent activity does not mask main-thread metrics, while supporting one-click switching to **All (Main + Sub)** (`tree`) or individual sub-agent scopes.
+4. **Context Window Wafer Matrix & Immediate Manual `/compact` Refresh**:
+   - Displays real-time context window utilization (`estimatedTokensUsed / maxContextTokens`) with a full-width wafer grid matrix, remaining token capacity, and immediate post-compaction recalculation from `CORTEX_STEP_TYPE_CHECKPOINT` (`step_type = 23`) steps without waiting for the next prompt.
+5. **React 18 + Tailwind CSS v4 Production Architecture, Secondary History Menu & Bilingual UI (`en` / `zh-CN`)**:
+   - **Session Panel (Default)**: Scoped to the active workspace with a streamlined single-row primary toolbar (`Session | Global` + `Overview | Details` + `⋯`); clicking `History Sessions` inside the `⋯` secondary menu switches in-place within a constant-height popover to list all workspace conversations (including the current session).
+   - **Global Panel**: Features **Global Sessions**, **Model Registry**, and **Config & Steps**, along with `EN` / `中文` toggle and refresh interval controls (`1s`, `5s` default, `10s`, `30s`, `Manual`, plus automatic focus/visibility refresh).
    - **Tri-State Vector SVG Status Indicators**: Custom React dropdown lists display a green dot (`#34C759`) for active conversations, a gray dot (`#86868B`) for inactive conversations, and a green checkmark (`#34C759`) for completed sub-agent conversations.
    - Supports `1s`, `5s`, `10s`, `30s`, and `Manual` refresh intervals.
 

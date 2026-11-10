@@ -63,11 +63,15 @@ export function App() {
       ''
   );
   const [selectedScope, setSelectedScope] = useState(
-    urlParams.get('scope') || 'tree'
+    urlParams.get('scope') || 'root'
   );
-  const [pollIntervalMs, setPollIntervalMs] = useState(
-    urlParams.get('poll') !== null ? Number(urlParams.get('poll')) : 10000
-  );
+  const [pollIntervalMs, setPollIntervalMs] = useState(() => {
+    if (urlParams.get('poll') !== null) return Number(urlParams.get('poll'));
+    if (typeof savedPrefs.pollIntervalMs === 'number') {
+      return savedPrefs.pollIntervalMs;
+    }
+    return 5000;
+  });
   const [lang, setLang] = useState(() =>
     detectInitialLang(savedPrefs.lang, urlParams.get('lang'))
   );
@@ -192,8 +196,8 @@ export function App() {
           workspaceUrisRef.current = nextUris;
           selectedConvRef.current = '';
           setSelectedConversationId('');
-          setSelectedScope('tree');
-          refreshTelemetry('', 'tree', nextUris);
+          setSelectedScope('root');
+          refreshTelemetry('', 'root', nextUris);
         }
       });
     }
@@ -212,14 +216,42 @@ export function App() {
     return () => clearInterval(timer);
   }, [pollIntervalMs, refreshTelemetry]);
 
+  useEffect(() => {
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        refreshTelemetry(selectedConvRef.current, selectedScopeRef.current);
+      }
+    };
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [refreshTelemetry]);
+
+  const handleChangePollInterval = useCallback((nextPollMs) => {
+    setPollIntervalMs(nextPollMs);
+    try {
+      const prev = readSavedPrefs();
+      localStorage.setItem(
+        'agy_telemetry_studio_v1',
+        JSON.stringify({ ...prev, pollIntervalMs: nextPollMs })
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
   const handleToggleLang = useCallback(() => {
     const nextLang = lang === 'zh-CN' ? 'en' : 'zh-CN';
     setLang(nextLang);
     setUserExplicitLang(true);
     try {
+      const prev = readSavedPrefs();
       localStorage.setItem(
         'agy_telemetry_studio_v1',
-        JSON.stringify({ lang: nextLang })
+        JSON.stringify({ ...prev, lang: nextLang })
       );
       fetch(`/api/theme?lang=${encodeURIComponent(nextLang)}`).catch(() => {});
     } catch {
@@ -230,15 +262,15 @@ export function App() {
   const handleSelectConversation = useCallback(
     (nextConvId) => {
       setSelectedConversationId(nextConvId);
-      setSelectedScope('tree');
-      refreshTelemetry(nextConvId, 'tree');
+      setSelectedScope('root');
+      refreshTelemetry(nextConvId, 'root');
     },
     [refreshTelemetry]
   );
 
   const handleSelectScope = useCallback(
     (nextScope) => {
-      const normalized = nextScope || 'tree';
+      const normalized = nextScope || 'root';
       setSelectedScope(normalized);
       refreshTelemetry(selectedConvRef.current, normalized);
     },
@@ -258,8 +290,8 @@ export function App() {
         ) {
           const fallbackId = wsConvs[0].conversationId;
           setSelectedConversationId(fallbackId);
-          setSelectedScope('tree');
-          refreshTelemetry(fallbackId, 'tree', workspaceUrisRef.current);
+          setSelectedScope('root');
+          refreshTelemetry(fallbackId, 'root', workspaceUrisRef.current);
         }
       }
     },
@@ -292,7 +324,7 @@ export function App() {
   return (
     <div
       id="appShell"
-      className="h-screen max-h-screen w-full max-w-full mx-auto py-2 px-1.5 flex flex-col gap-2 overflow-hidden bg-white text-[#1d1d1f] font-sans text-[13px] leading-[1.45] antialiased"
+      className="h-screen max-h-screen w-full max-w-[560px] mx-auto py-2 px-2 sm:px-3 flex flex-col gap-2 overflow-hidden bg-white text-[#1d1d1f] font-sans text-[13px] leading-[1.45] antialiased"
     >
       <TopBar
         t={t}
@@ -307,7 +339,7 @@ export function App() {
         selectedScope={selectedScope}
         onSelectScope={handleSelectScope}
         pollIntervalMs={pollIntervalMs}
-        onChangePollInterval={setPollIntervalMs}
+        onChangePollInterval={handleChangePollInterval}
         onToggleLang={handleToggleLang}
         onRefresh={() =>
           refreshTelemetry(

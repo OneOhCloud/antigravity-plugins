@@ -124,8 +124,9 @@ export const I18N = {
     fmtRetryBadge: (r) => `Retry x${r}`,
     fmtThinkRespShort: (t, r) => `T ${t} / R ${r}`,
     historyConversationsLabel: 'History Sessions',
-    fmtHistoryConversationsCount: (n) => `${n} history`,
+    fmtHistoryConversationsCount: (n) => `${n} sessions`,
     backToActiveConversations: 'Back to Active',
+    backToMoreSettings: 'Back to Menu',
   },
   'zh-CN': {
     panelConversation: '对话',
@@ -249,6 +250,7 @@ export const I18N = {
     historyConversationsLabel: '历史对话',
     fmtHistoryConversationsCount: (n) => `${n} 个历史对话`,
     backToActiveConversations: '返回当前对话',
+    backToMoreSettings: '返回菜单',
   },
 };
 

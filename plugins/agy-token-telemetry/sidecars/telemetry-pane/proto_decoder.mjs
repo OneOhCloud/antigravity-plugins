@@ -235,16 +235,22 @@ function decodeContextWindowMetadata(buffer) {
           ctx.totalBreakdownTokens = Math.max(0, toSafeNonNegativeInt(bf.value));
         } else if (bf.tag === 1 && bf.wireType === 2) {
           let name = '';
-          let totalTokens = 0;
+          let numTokens = null;
+          let fallbackTag2Tokens = 0;
           for (const gf of parseWireFields(bf.value)) {
             if (gf.tag === 1 && gf.wireType === 2) {
               name = decodeUtf8(gf.value);
+            } else if (gf.tag === 4 && gf.wireType === 0) {
+              numTokens = Math.max(0, toSafeNonNegativeInt(gf.value));
             } else if (gf.tag === 2 && gf.wireType === 0) {
-              totalTokens = Math.max(0, toSafeNonNegativeInt(gf.value));
+              fallbackTag2Tokens = Math.max(0, toSafeNonNegativeInt(gf.value));
             }
           }
           if (name) {
-            ctx.groups.push({ name, totalTokens });
+            ctx.groups.push({
+              name,
+              totalTokens: numTokens !== null ? numTokens : fallbackTag2Tokens,
+            });
           }
         }
       }
@@ -543,6 +549,69 @@ export function decodeConversationSummaryProto(input) {
   };
 }
 
+function decodeTimestampIso(buffer) {
+  let seconds = 0;
+  let nanos = 0;
+  for (const field of parseWireFields(buffer)) {
+    if (field.tag === 1 && field.wireType === 0) {
+      seconds = toSafeNonNegativeInt(field.value);
+    } else if (field.tag === 2 && field.wireType === 0) {
+      nanos = toSafeNonNegativeInt(field.value);
+    }
+  }
+  if (seconds <= 0) return '';
+  return new Date(seconds * 1000 + Math.round(nanos / 1e6)).toISOString();
+}
+
+/**
+ * Decodes `CORTEX_STEP_TYPE_CHECKPOINT` (`step_type = 23`) step metadata
+ * from SQLite `steps.metadata` to extract compaction LLM token usage
+ * (`inputTokens`, `outputTokens`, `cacheReadTokens`, `thinkingOutputTokens`,
+ * `responseOutputTokens`) and completion timestamp.
+ */
+export function decodeCheckpointStepMetadata(input, stepIndex = -1) {
+  if (!input) return null;
+  const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input, 'hex');
+  let createdAt = '';
+  let completedAt = '';
+  let usage = null;
+
+  for (const field of parseWireFields(buffer)) {
+    if (field.tag === 1 && field.wireType === 2) {
+      createdAt = decodeTimestampIso(field.value);
+    } else if (field.tag === 8 && field.wireType === 2) {
+      completedAt = decodeTimestampIso(field.value);
+    } else if (field.tag === 9 && field.wireType === 2) {
+      usage = decodeModelUsageStats(field.value);
+    } else if (!usage && field.tag === 28 && field.wireType === 2) {
+      for (const sub of parseWireFields(field.value)) {
+        if (sub.tag === 2 && sub.wireType === 2) {
+          usage = decodeModelUsageStats(sub.value);
+        }
+      }
+    }
+  }
+
+  const inputTokens = usage?.inputTokens || 0;
+  const outputTokens = usage?.outputTokens || 0;
+  const cacheReadTokens = usage?.cacheReadTokens || 0;
+  const thinkingOutputTokens = usage?.thinkingOutputTokens || 0;
+  const responseOutputTokens =
+    usage?.responseOutputTokens > 0
+      ? usage.responseOutputTokens
+      : Math.max(0, outputTokens - thinkingOutputTokens);
+
+  return {
+    stepIndex: Number(stepIndex),
+    createdAt: completedAt || createdAt,
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    thinkingOutputTokens,
+    responseOutputTokens,
+  };
+}
+
 /**
  * Parses a Protobuf JSON duration string such as `"8.233905167s"` into seconds.
  */
@@ -653,7 +722,7 @@ export function normalizeStepRecord(raw) {
   const breakdownGroups = Array.isArray(rawBreakdownGroups)
     ? rawBreakdownGroups.map((g) => ({
         name: String(g?.name || ''),
-        totalTokens: toNonNegativeNumber(g?.totalTokens),
+        totalTokens: toNonNegativeNumber(g?.totalTokens ?? g?.numTokens),
       }))
     : [];
 

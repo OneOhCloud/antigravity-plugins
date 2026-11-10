@@ -1,7 +1,8 @@
 /**
- * @fileoverview Streamlined TopBar with 3-item primary toolbar (`Session | Global`
- * switch + full-width Conversation Selector + `⋯` Secondary Menu Popover) and
- * single-row flex navigation tabs, styled exclusively with Tailwind CSS.
+ * @fileoverview Streamlined TopBar with unified primary toolbar (`Session | Global`
+ * switch + single-row flex navigation tabs + `⋯` Secondary Menu Popover housing
+ * History Conversations) and optional Sub-Conversation Scope selector row,
+ * styled exclusively with Tailwind CSS.
  */
 
 import React, { useMemo } from 'react';
@@ -61,25 +62,6 @@ export function TopBar({
     });
   }, [telemetry?.availableConversations, t]);
 
-  const { primaryConversationOptions, historyConversationOptions } =
-    useMemo(() => {
-      const activeList = conversationOptions.filter(
-        (opt) => opt.lifecycleStatus === 'active'
-      );
-      if (activeList.length > 0) {
-        return {
-          primaryConversationOptions: activeList,
-          historyConversationOptions: conversationOptions.filter(
-            (opt) => opt.lifecycleStatus !== 'active'
-          ),
-        };
-      }
-      return {
-        primaryConversationOptions: conversationOptions.slice(0, 1),
-        historyConversationOptions: conversationOptions.slice(1),
-      };
-    }, [conversationOptions]);
-
   const globalConversationOptions = useMemo(() => {
     const list = Array.isArray(telemetry?.globalConversations)
       ? telemetry.globalConversations
@@ -127,16 +109,6 @@ export function TopBar({
 
     const items = [
       {
-        value: 'tree',
-        label: t('fmtScopeTreeOption')(
-          sh.subagentCount,
-          fmtInt(treeTotals.requestCount || 0),
-          fmtCompact(treeTotals.grandTotalTokens || 0)
-        ),
-        lifecycleStatus: treeStatus,
-        statusLabel: mapStatusLabel(treeStatus, t),
-      },
-      {
         value: 'root',
         label: t('fmtScopeRootOption')(
           rootTitle,
@@ -145,6 +117,16 @@ export function TopBar({
         ),
         lifecycleStatus: rootStatus,
         statusLabel: mapStatusLabel(rootStatus, t),
+      },
+      {
+        value: 'tree',
+        label: t('fmtScopeTreeOption')(
+          sh.subagentCount,
+          fmtInt(treeTotals.requestCount || 0),
+          fmtCompact(treeTotals.grandTotalTokens || 0)
+        ),
+        lifecycleStatus: treeStatus,
+        statusLabel: mapStatusLabel(treeStatus, t),
       },
     ];
 
@@ -174,33 +156,33 @@ export function TopBar({
     return items;
   }, [telemetry?.sessionHierarchy, t, fmtInt, fmtCompact]);
 
-  const globalReg = telemetry?.globalModelRegistry || {};
-  const globalSessions = globalReg.scannedConversations || 0;
-  const globalModelsCount = Array.isArray(globalReg.entries)
-    ? globalReg.entries.length
-    : 0;
-  const globalSummaryText = t('fmtGlobalToolbarSummary')(
-    globalSessions,
-    globalModelsCount
-  );
+  const activeConversationOptions =
+    activePanel === 'conversation'
+      ? conversationOptions
+      : globalConversationOptions;
+
+  const isHistoryMenuRequested =
+    openMenu === 'conversation' ||
+    openMenu === 'conversationHistory' ||
+    openMenu === 'globalConversation';
 
   const navTabBase =
-    'flex-1 min-w-0 py-[5px] px-1.5 rounded-[7px] text-[12px] text-center whitespace-nowrap truncate cursor-pointer transition-colors';
+    'flex-1 min-w-0 py-[4px] px-1.5 rounded-[6px] text-[11.5px] text-center whitespace-nowrap truncate cursor-pointer transition-colors';
   const navTabActive = 'bg-white text-[#1d1d1f] font-semibold';
   const navTabInactive =
     'bg-transparent text-[#515154] font-medium hover:opacity-88';
 
   return (
-    <header className="bg-[#f5f5f7] rounded-[16px] py-2.5 px-3 flex flex-col gap-[7px] shrink-0 min-w-0 relative z-30">
+    <header className="bg-[#f5f5f7] rounded-[16px] py-2 px-2.5 flex flex-col gap-1.5 shrink-0 min-w-0 relative z-30">
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-1.5 items-center min-w-0 relative">
         <div
-          className="inline-grid grid-cols-2 gap-0.5 bg-[#e8e8ed] p-0.5 rounded-[8px] shrink-0"
+          className="inline-grid grid-cols-2 gap-0.5 bg-[#e8e8ed] p-[3px] rounded-[8px] shrink-0"
           role="group"
         >
           <button
             type="button"
             id="panelBtnConversation"
-            className={`text-[11.5px] font-semibold py-[3px] px-[9px] rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
+            className={`text-[11.5px] font-semibold py-[4px] px-[9px] rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
               activePanel === 'conversation'
                 ? 'bg-white text-[#1d1d1f]'
                 : 'bg-transparent text-[#515154] hover:opacity-88'
@@ -212,7 +194,7 @@ export function TopBar({
           <button
             type="button"
             id="panelBtnGlobal"
-            className={`text-[11.5px] font-semibold py-[3px] px-[9px] rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
+            className={`text-[11.5px] font-semibold py-[4px] px-[9px] rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
               activePanel === 'global'
                 ? 'bg-white text-[#1d1d1f]'
                 : 'bg-transparent text-[#515154] hover:opacity-88'
@@ -223,43 +205,72 @@ export function TopBar({
           </button>
         </div>
 
-        {activePanel === 'conversation' ? (
-          <SessionSelectPopover
-            id="conversationSelect"
-            options={primaryConversationOptions}
-            historyOptions={historyConversationOptions}
-            value={selectedConversationId}
-            onChange={onSelectConversation}
-            tooltip={t('selectConvTooltip')}
-            defaultOpen={
-              openMenu === 'conversation' || openMenu === 'conversationHistory'
-            }
-            defaultSubView={
-              openMenu === 'conversationHistory' ? 'history' : 'primary'
-            }
-            t={t}
-          />
-        ) : (
-          <SessionSelectPopover
-            id="globalConversationSelect"
-            options={globalConversationOptions}
-            value={selectedConversationId}
-            onChange={onSelectConversation}
-            tooltip={globalSummaryText}
-            defaultOpen={openMenu === 'globalConversation'}
-            t={t}
-          />
-        )}
+        <nav
+          className="flex-1 min-w-0 flex flex-nowrap items-center gap-0.5 bg-[#e8e8ed] p-[3px] rounded-[8px]"
+          role="tablist"
+        >
+          {activePanel === 'conversation' ? (
+            <>
+              <button
+                type="button"
+                className={`${navTabBase} ${activeTab === 'overview' ? navTabActive : navTabInactive}`}
+                data-tab="overview"
+                onClick={() => onSelectTab('overview')}
+              >
+                {t('tabOverview')}
+              </button>
+              <button
+                type="button"
+                className={`${navTabBase} ${activeTab === 'details' ? navTabActive : navTabInactive}`}
+                data-tab="details"
+                onClick={() => onSelectTab('details')}
+              >
+                {t('tabDetails')}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={`${navTabBase} ${activeTab === 'sessions' ? navTabActive : navTabInactive}`}
+                data-tab="sessions"
+                onClick={() => onSelectTab('sessions')}
+              >
+                {t('tabSessions')}
+              </button>
+              <button
+                type="button"
+                className={`${navTabBase} ${activeTab === 'models' ? navTabActive : navTabInactive}`}
+                data-tab="models"
+                onClick={() => onSelectTab('models')}
+              >
+                {t('tabModels')}
+              </button>
+              <button
+                type="button"
+                className={`${navTabBase} ${activeTab === 'steps' ? navTabActive : navTabInactive}`}
+                data-tab="steps"
+                onClick={() => onSelectTab('steps')}
+              >
+                {t('tabSteps')}
+              </button>
+            </>
+          )}
+        </nav>
 
         <MoreActionsPopover
           t={t}
           lang={lang}
+          conversationOptions={activeConversationOptions}
+          selectedConversationId={selectedConversationId}
+          onSelectConversation={onSelectConversation}
           pollIntervalMs={pollIntervalMs}
           onChangePollInterval={onChangePollInterval}
           onToggleLang={onToggleLang}
           onRefresh={onRefresh}
           statusTimestamp={statusTimestamp}
-          defaultOpen={openMenu === 'more'}
+          defaultOpen={openMenu === 'more' || isHistoryMenuRequested}
+          defaultSubView={isHistoryMenuRequested ? 'history' : 'settings'}
         />
       </div>
 
@@ -299,59 +310,6 @@ export function TopBar({
           />
         </div>
       )}
-
-      <nav
-        className="flex flex-nowrap items-center gap-1 bg-[#e8e8ed] p-[3px] rounded-[10px]"
-        role="tablist"
-      >
-        {activePanel === 'conversation' ? (
-          <>
-            <button
-              type="button"
-              className={`${navTabBase} ${activeTab === 'overview' ? navTabActive : navTabInactive}`}
-              data-tab="overview"
-              onClick={() => onSelectTab('overview')}
-            >
-              {t('tabOverview')}
-            </button>
-            <button
-              type="button"
-              className={`${navTabBase} ${activeTab === 'details' ? navTabActive : navTabInactive}`}
-              data-tab="details"
-              onClick={() => onSelectTab('details')}
-            >
-              {t('tabDetails')}
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              className={`${navTabBase} ${activeTab === 'sessions' ? navTabActive : navTabInactive}`}
-              data-tab="sessions"
-              onClick={() => onSelectTab('sessions')}
-            >
-              {t('tabSessions')}
-            </button>
-            <button
-              type="button"
-              className={`${navTabBase} ${activeTab === 'models' ? navTabActive : navTabInactive}`}
-              data-tab="models"
-              onClick={() => onSelectTab('models')}
-            >
-              {t('tabModels')}
-            </button>
-            <button
-              type="button"
-              className={`${navTabBase} ${activeTab === 'steps' ? navTabActive : navTabInactive}`}
-              data-tab="steps"
-              onClick={() => onSelectTab('steps')}
-            >
-              {t('tabSteps')}
-            </button>
-          </>
-        )}
-      </nav>
     </header>
   );
 }
