@@ -18,7 +18,9 @@ const API_PROVIDER_ENUM_MAP = Object.freeze({
 });
 
 const MODEL_ENUM_FALLBACK_MAP = Object.freeze({
+  1018: 'MODEL_PLACEHOLDER_M18',
   1026: 'MODEL_PLACEHOLDER_M26',
+  1050: 'MODEL_PLACEHOLDER_M50',
   1318: 'MODEL_PLACEHOLDER_M318',
   1319: 'MODEL_PLACEHOLDER_M319',
   1320: 'MODEL_PLACEHOLDER_M320',
@@ -32,7 +34,21 @@ const MODEL_ENUM_FALLBACK_MAP = Object.freeze({
   1417: 'MODEL_PLACEHOLDER_M417',
   1418: 'MODEL_PLACEHOLDER_M418',
   1419: 'MODEL_PLACEHOLDER_M419',
+  1427: 'MODEL_PLACEHOLDER_M427',
+  1437: 'MODEL_PLACEHOLDER_M437',
+  1438: 'MODEL_PLACEHOLDER_M438',
 });
+
+function resolveModelEnumFromInt(modelEnumInt) {
+  if (!modelEnumInt) return '';
+  if (MODEL_ENUM_FALLBACK_MAP[modelEnumInt]) {
+    return MODEL_ENUM_FALLBACK_MAP[modelEnumInt];
+  }
+  if (modelEnumInt > 1000 && modelEnumInt < 2000) {
+    return `MODEL_PLACEHOLDER_M${modelEnumInt - 1000}`;
+  }
+  return `MODEL_ENUM_${modelEnumInt}`;
+}
 
 /**
  * Reads a base-128 varint as a BigInt from buffer starting at offset.
@@ -310,9 +326,7 @@ function decodeChatModelMetadata(buffer) {
   }
 
   const resolvedModelEnum =
-    customMetadata.model_enum ||
-    MODEL_ENUM_FALLBACK_MAP[modelEnumInt] ||
-    (modelEnumInt ? `MODEL_ENUM_${modelEnumInt}` : '');
+    customMetadata.model_enum || resolveModelEnumFromInt(modelEnumInt);
 
   return {
     model: resolvedModelEnum,
@@ -651,6 +665,9 @@ export function normalizeStepRecord(raw) {
     ? raw.stepIndices.map((n) => Number(n)).filter((n) => Number.isFinite(n))
     : [];
   const executionId = String(raw?.executionId || '');
+  const plannerMaxOutputTokens = toNonNegativeNumber(
+    raw?.plannerMaxOutputTokens ?? raw?.plannerConfig?.maxOutputTokens
+  );
   const cm = raw?.chatModel || null;
 
   if (!cm) {
@@ -660,7 +677,7 @@ export function normalizeStepRecord(raw) {
       firstStepIndex: stepIndices.length > 0 ? Math.min(...stepIndices) : -1,
       lastStepIndex: stepIndices.length > 0 ? Math.max(...stepIndices) : -1,
       executionId,
-      plannerMaxOutputTokens: toNonNegativeNumber(raw?.plannerMaxOutputTokens),
+      plannerMaxOutputTokens,
     };
   }
 
@@ -776,6 +793,7 @@ export function normalizeStepRecord(raw) {
     retryCount,
     estimatedTokensUsed,
     maxContextTokens,
+    plannerMaxOutputTokens,
     breakdownGroups,
     messageId: String(rawUsage.messageId || ''),
     responseId: String(rawUsage.responseId || ''),

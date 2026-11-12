@@ -235,6 +235,7 @@ async function collectNodeTelemetryEntry({
   let nodePlannerMaxOutputTokens = 0;
   let nodeFirstContextStep = null;
   let nodeLatestContextStep = null;
+  let nodeLatestCompletedPromptStep = null;
   let nodeLatestBreakdownGroups = [];
   let maxCoveredStepIndex = -1;
   let nodeInputTokens = 0;
@@ -300,11 +301,20 @@ async function collectNodeTelemetryEntry({
       maxCoveredStepIndex = stepMaxIdx;
     }
 
+    if (enrichedStep.totalPromptTokens > 0) {
+      nodeLatestCompletedPromptStep = enrichedStep;
+    }
+
     if (
       enrichedStep.maxContextTokens > 0 ||
-      enrichedStep.estimatedTokensUsed > 0
+      enrichedStep.estimatedTokensUsed > 0 ||
+      enrichedStep.totalPromptTokens > 0
     ) {
-      if (!nodeFirstContextStep && enrichedStep.estimatedTokensUsed > 0) {
+      if (
+        !nodeFirstContextStep &&
+        (enrichedStep.totalPromptTokens > 0 ||
+          enrichedStep.estimatedTokensUsed > 0)
+      ) {
         nodeFirstContextStep = enrichedStep;
       }
       nodeLatestContextStep = enrichedStep;
@@ -315,6 +325,28 @@ async function collectNodeTelemetryEntry({
     if (isStepValidForE2E(enrichedStep)) {
       nodeValidSteps.push(enrichedStep);
     }
+  }
+
+  if (nodeLatestContextStep) {
+    const rawHeuristic = nodeLatestContextStep.estimatedTokensUsed || 0;
+    let calibratedUsed = rawHeuristic;
+    if (nodeLatestContextStep.totalPromptTokens > 0) {
+      calibratedUsed = nodeLatestContextStep.totalPromptTokens;
+    } else if (nodeLatestCompletedPromptStep) {
+      const prevHeuristic =
+        nodeLatestCompletedPromptStep.estimatedTokensUsed || 0;
+      const heuristicDelta =
+        rawHeuristic > 0 && prevHeuristic > 0
+          ? Math.max(0, rawHeuristic - prevHeuristic)
+          : 0;
+      calibratedUsed =
+        nodeLatestCompletedPromptStep.totalPromptTokens + heuristicDelta;
+    }
+    nodeLatestContextStep = {
+      ...nodeLatestContextStep,
+      contextTokensUsed: calibratedUsed,
+      heuristicTokensUsed: rawHeuristic,
+    };
   }
 
   const latestCheckpoint = readLatestCheckpointFromSqlite(
@@ -332,7 +364,9 @@ async function collectNodeTelemetryEntry({
         ? nonChatGroups.reduce((sum, g) => sum + g.totalTokens, 0)
         : Math.max(
             0,
-            (nodeFirstContextStep?.estimatedTokensUsed || 24000) - 1000
+            (nodeFirstContextStep?.estimatedTokensUsed ||
+              nodeFirstContextStep?.totalPromptTokens ||
+              24000) - 1000
           );
     const checkpointChatTokens =
       (latestCheckpoint.responseOutputTokens ||
@@ -353,7 +387,9 @@ async function collectNodeTelemetryEntry({
 
     nodeLatestContextStep = {
       ...(nodeLatestContextStep || {}),
+      contextTokensUsed: postCompactEstimatedTokens,
       estimatedTokensUsed: postCompactEstimatedTokens,
+      heuristicTokensUsed: postCompactEstimatedTokens,
       maxContextTokens,
       breakdownGroups: updatedBreakdown,
       compactedAtStepIndex: latestCheckpoint.stepIndex,
@@ -392,7 +428,18 @@ async function collectNodeTelemetryEntry({
         outputTokens: nodeOutputTokens,
         grandTotalTokens: nodePromptTokens + nodeOutputTokens,
         weightedE2ETokPerSec: nodeTp.weightedE2ETokPerSec,
-        estimatedTokensUsed: nodeLatestContextStep?.estimatedTokensUsed || 0,
+        contextTokensUsed:
+          nodeLatestContextStep?.contextTokensUsed ??
+          nodeLatestContextStep?.estimatedTokensUsed ??
+          0,
+        estimatedTokensUsed:
+          nodeLatestContextStep?.contextTokensUsed ??
+          nodeLatestContextStep?.estimatedTokensUsed ??
+          0,
+        heuristicTokensUsed:
+          nodeLatestContextStep?.heuristicTokensUsed ??
+          nodeLatestContextStep?.estimatedTokensUsed ??
+          0,
         maxContextTokens: nodeLatestContextStep?.maxContextTokens || 0,
       },
     },
@@ -441,13 +488,17 @@ function selectScopedNodeEntries(
     const rootCtxStep = nodeDataById.get(rootConv.conversationId)?.latestContextStep;
     const defaultMaxCtx = rootCtxStep?.maxContextTokens || 256000;
     let sumUsedCtx = 0;
+    let sumHeuristicCtx = 0;
     let sumMaxCtx = 0;
     const breakdownMap = new Map();
 
     for (const entry of selectedNodeEntries) {
       const ctxStep = entry.latestContextStep;
       if (!ctxStep && entry.chatStepRecords.length === 0) continue;
-      sumUsedCtx += ctxStep?.estimatedTokensUsed || 0;
+      sumUsedCtx +=
+        ctxStep?.contextTokensUsed ?? ctxStep?.estimatedTokensUsed ?? 0;
+      sumHeuristicCtx +=
+        ctxStep?.heuristicTokensUsed ?? ctxStep?.estimatedTokensUsed ?? 0;
       sumMaxCtx += ctxStep?.maxContextTokens || defaultMaxCtx;
       for (const g of ctxStep?.breakdownGroups || []) {
         if (!g?.name) continue;
@@ -463,7 +514,9 @@ function selectScopedNodeEntries(
       plannerMaxOutputTokens,
       chatStepRecords,
       latestContextStep: {
+        contextTokensUsed: sumUsedCtx,
         estimatedTokensUsed: sumUsedCtx,
+        heuristicTokensUsed: sumHeuristicCtx,
         maxContextTokens: sumMaxCtx || defaultMaxCtx,
         breakdownGroups: Array.from(breakdownMap.entries()).map(
           ([name, totalTokens]) => ({ name, totalTokens })
@@ -658,9 +711,16 @@ export async function collectConversationTelemetry(
   );
 
   const maxContextTokens = latestContextStep?.maxContextTokens || 0;
-  const estimatedTokensUsed = latestContextStep?.estimatedTokensUsed || 0;
+  const contextTokensUsed =
+    latestContextStep?.contextTokensUsed ??
+    latestContextStep?.estimatedTokensUsed ??
+    0;
+  const heuristicTokensUsed =
+    latestContextStep?.heuristicTokensUsed ??
+    latestContextStep?.estimatedTokensUsed ??
+    0;
   const contextUsageRatio =
-    maxContextTokens > 0 ? estimatedTokensUsed / maxContextTokens : 0;
+    maxContextTokens > 0 ? contextTokensUsed / maxContextTokens : 0;
 
   return {
     conversationId: rootConv.conversationId,
@@ -687,14 +747,13 @@ export async function collectConversationTelemetry(
     contextWindowState: {
       cliConfiguredValue: runtimeEnv.contextWindowConfig.configuredValue,
       cliDisplayValue: runtimeEnv.contextWindowConfig.displayValue,
-      estimatedTokensUsed,
+      contextTokensUsed,
+      estimatedTokensUsed: contextTokensUsed,
+      heuristicTokensUsed,
       maxContextTokens,
       plannerMaxOutputTokens,
       usageRatio: contextUsageRatio,
-      remainingContextTokens: Math.max(
-        0,
-        maxContextTokens - estimatedTokensUsed
-      ),
+      remainingContextTokens: Math.max(0, maxContextTokens - contextTokensUsed),
       breakdownGroups: latestContextStep?.breakdownGroups || [],
     },
     throughput: buildThroughputPayload(validThroughputSteps, recentWindowSize, {

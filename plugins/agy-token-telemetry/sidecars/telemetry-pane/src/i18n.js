@@ -98,8 +98,10 @@ export const I18N = {
       `In ${inp} · Out ${out} · Cache ${cachePct}`,
     fmtContextWindowMeta: (used, max, avail, stepTok) =>
       `Used ${used} / ${max} · Free ${avail} · ${stepTok}/cell`,
-    fmtCtxGridTooltip: (filled, total, stepTok, used, max) =>
-      `${filled}/${total} cells filled (${stepTok}/cell) · ${used} / ${max}`,
+    fmtCtxGridTooltip: (filled, total, stepTok, used, max, heuristic) =>
+      heuristic
+        ? `${filled}/${total} cells filled (${stepTok}/cell) · Actual ${used} / ${max} (Client est. ${heuristic})`
+        : `${filled}/${total} cells filled (${stepTok}/cell) · ${used} / ${max}`,
     fmtSessionAvgPeak: (avg, peak) => `Avg ${avg} · Peak ${peak}`,
     fmtAvailableCompact: (avail, compact) => `Free ${avail} · ${compact}`,
     fmtValidSamples: (n) => `${n} samples`,
@@ -222,8 +224,10 @@ export const I18N = {
       `入 ${inp} · 出 ${out} · 缓存 ${cachePct}`,
     fmtContextWindowMeta: (used, max, avail, stepTok) =>
       `已用 ${used} / ${max} · 剩余 ${avail} · ${stepTok}/格`,
-    fmtCtxGridTooltip: (filled, total, stepTok, used, max) =>
-      `已填充 ${filled}/${total} 格 (${stepTok}/格) · 已用 ${used} / ${max}`,
+    fmtCtxGridTooltip: (filled, total, stepTok, used, max, heuristic) =>
+      heuristic
+        ? `已填充 ${filled}/${total} 格 (${stepTok}/格) · 真实已用 ${used} / ${max} (客户端预估 ${heuristic})`
+        : `已填充 ${filled}/${total} 格 (${stepTok}/格) · 已用 ${used} / ${max}`,
     fmtSessionAvgPeak: (avg, peak) => `均值 ${avg} · 峰值 ${peak}`,
     fmtAvailableCompact: (avail, compact) => `剩余 ${avail} · ${compact}`,
     fmtValidSamples: (n) => `${n} 次样本`,

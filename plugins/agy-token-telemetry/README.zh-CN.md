@@ -20,11 +20,11 @@ curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main
    - 实时聚合 App 与 CLI 会话的 `inputTokens`、`cacheReadTokens`、`outputTokens`、`thinkingOutputTokens` 与 `responseOutputTokens`。
    - 直观呈现输入缓存命中率（`cacheReadTokens / (inputTokens + cacheReadTokens)`）及输出端思考推理与正式回复的构成比例。
 2. **模型可读名称与底层端点标识映射**：
-   - 自动提取当前会话及本机历史会话的 `modelDisplayName`（可读名称）、`responseModel`（底层端点 ID）、`model` 枚举值与 `apiProvider` 提供商，构建本机全量模型字典。
+   - 自动提取当前会话及本机历史会话的 `modelDisplayName`（可读名称）、`responseModel`（底层端点 ID）、`model` 枚举值（含 Antigravity `2.31+` `M1000+` 整数枚举自动解析）、`plannerConfig.maxOutputTokens` 与 `apiProvider` 提供商，构建本机全量模型字典。
 3. **端到端（E2E）有效速率与子对话范围控制（`tok/s`）**：
    - 默认展示 **仅主会话（`root`）** 指标，避免子代理大吞吐掩盖主会话上下文水位；支持随时切换为 **全部（主会话 + 子代理）** 全树累加或单独查看指定子代理。
-4. **整行上下文窗口晶圆格子矩阵与手动 `/compact` 即时刷新**：
-   - 通过整行晶圆格子矩阵直观呈现上下文窗口占用（`estimatedTokensUsed / maxContextTokens`）与剩余可用容量；精准识别 SQLite `steps` 表中的 `CORTEX_STEP_TYPE_CHECKPOINT`（`step_type = 23`）手动压缩检查点并过滤取消态空记录，压缩完成后无需等待下一轮提问即可立即刷新窗口水位。
+4. **API 真实水位校准的整行上下文窗口晶圆矩阵与手动 `/compact` 即时刷新**：
+   - 以 API 真实发送上下文水位（`inputTokens + cacheReadTokens`）校准晶圆格子矩阵占用（`contextTokensUsed / maxContextTokens`）与剩余可用容量，消除未持久化的单轮思考推理 Token 带来的虚高误差，同时在悬浮提示中保留客户端 `estimatedTokensUsed` 估算值对照；精准识别 SQLite `steps` 表中的 `CORTEX_STEP_TYPE_CHECKPOINT`（`step_type = 23`）压缩检查点并过滤取消态空记录，压缩完成后无需等待下一轮提问即可立即刷新窗口水位。
 5. **React 18 + Tailwind CSS v4 生产级架构、二级菜单历史对话与中英双语（`en` / `zh-CN`）**：
    - **对话面板（默认进入）**：顶栏主行精简合并为「`对话 | 全局` + `概览 | 明细` + `⋯`」；会话切换入口收纳至右上角 `⋯` 二级菜单顶部「历史对话」卡片，点击后在恒定高度弹层内原位切换并直接展示包含当前对话在内的完整工作区对话列表。
    - **全局面板**：下设 **会话记录**、**模型字典** 与 **配置与步骤**，并在 `⋯` 菜单集成多语言切换（`EN` / `中文`）与刷新周期设置（默认 `5s` + 窗口聚焦即时刷新）。

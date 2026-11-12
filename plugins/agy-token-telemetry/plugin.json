@@ -2,7 +2,7 @@
   "name": "agy-token-telemetry",
   "displayName": "AGY Token & Model Telemetry",
   "description": "Real-time session token usage, gen_metadata model & endpoint identifier mapping, end-to-end tok/s velocity, and contextWindow / AGY_CLI_AUTO_COMPACT_OVERRIDE telemetry pane for Antigravity (English & Simplified Chinese).",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "logo": "assets/logo.svg",
   "author": {
     "name": "OneOh Cloud",

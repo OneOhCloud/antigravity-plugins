@@ -99,7 +99,8 @@ export function ConversationOverviewPane({ data, t }) {
   const { fmtInt, fmtCompact, fmtRate, fmtSec, fmtPct } = getI18nBridge();
 
   const cwState = data?.contextWindowState || {};
-  const usedCtx = cwState.estimatedTokensUsed || 0;
+  const usedCtx = cwState.contextTokensUsed ?? cwState.estimatedTokensUsed ?? 0;
+  const heuristicCtx = cwState.heuristicTokensUsed || 0;
   const maxCtx = cwState.maxContextTokens || 0;
 
   const gridSpec = useMemo(
@@ -107,7 +108,7 @@ export function ConversationOverviewPane({ data, t }) {
     [usedCtx, maxCtx]
   );
   const availCtx =
-    cwState.availableTokensRemaining ??
+    cwState.remainingContextTokens ??
     Math.max(0, gridSpec.effectiveMax - usedCtx);
 
   const tp = data?.throughput || {};
@@ -122,12 +123,18 @@ export function ConversationOverviewPane({ data, t }) {
     [gridSpec.totalCells]
   );
 
+  const divergentHeuristicLabel =
+    heuristicCtx > 0 && Math.abs(heuristicCtx - usedCtx) >= 1000
+      ? fmtCompact(heuristicCtx)
+      : '';
+
   const gridTooltip = t('fmtCtxGridTooltip')(
     gridSpec.filledCells,
     gridSpec.totalCells,
     fmtCompact(gridSpec.tokensPerCell),
     fmtCompact(usedCtx),
-    fmtCompact(gridSpec.effectiveMax)
+    fmtCompact(gridSpec.effectiveMax),
+    divergentHeuristicLabel
   );
 
   return (
