@@ -578,6 +578,34 @@ function decodeTimestampIso(buffer) {
 }
 
 /**
+ * Decodes `createdAt` (`tag 1`) and `completedAt` (`tag 8`) timestamps from
+ * the leading header slice of a SQLite `steps.metadata` protobuf blob.
+ */
+export function decodeStepTimestampMetadata(input) {
+  if (!input) {
+    return { createdAt: '', completedAt: '', timestampIso: '', timestampMs: 0 };
+  }
+  const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input, 'hex');
+  let createdAt = '';
+  let completedAt = '';
+  for (const field of parseWireFields(buffer)) {
+    if (field.tag === 1 && field.wireType === 2) {
+      createdAt = decodeTimestampIso(field.value);
+    } else if (field.tag === 8 && field.wireType === 2) {
+      completedAt = decodeTimestampIso(field.value);
+    }
+  }
+  const timestampIso = completedAt || createdAt;
+  const parsedMs = timestampIso ? Date.parse(timestampIso) : 0;
+  return {
+    createdAt,
+    completedAt,
+    timestampIso,
+    timestampMs: Number.isFinite(parsedMs) ? parsedMs : 0,
+  };
+}
+
+/**
  * Decodes `CORTEX_STEP_TYPE_CHECKPOINT` (`step_type = 23`) step metadata
  * from SQLite `steps.metadata` to extract compaction LLM token usage
  * (`inputTokens`, `outputTokens`, `cacheReadTokens`, `thinkingOutputTokens`,

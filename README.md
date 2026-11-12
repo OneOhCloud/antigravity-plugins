@@ -33,7 +33,7 @@ git clone https://github.com/OneOhCloud/antigravity-plugins.git
 
 | Plugin Name | Category | Version | Languages | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.md) | Sidecar Aux Pane / Telemetry | `1.2.2` | `en`, `zh-CN` | Real-time session token usage, `gen_metadata` readable model & endpoint mapping, end-to-end `tok/s` velocity, and `contextWindow` / `AGY_CLI_AUTO_COMPACT_OVERRIDE` telemetry pane. |
+| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.md) | Sidecar Aux Pane / Telemetry | `1.3.0` | `en`, `zh-CN` | Real-time session token usage, 3-month historical token KPIs, host system metrics (`CPU / Load / Memory / Disk`), `gen_metadata` model & endpoint mapping, live 1m `tok/s` velocity, and `contextWindow` wafer matrix. |
 
 ---
 
@@ -57,6 +57,8 @@ antigravity-plugins/
 │               ├── sidecar.json             # Sidecar process & auxiliary pane config
 │               ├── main.mjs                 # Sidecar HTTP/API entrypoint
 │               ├── collector.mjs            # Telemetry aggregation & model registry facade
+│               ├── history_aggregator.mjs   # Incremental 3-month (92-day) global token ledger
+│               ├── host_metrics.mjs         # Non-blocking host CPU, Load, Memory & Disk sampler
 │               ├── throughput_aggregator.mjs # Multi-agent total throughput & token aggregator
 │               ├── session_tree.mjs         # Multi-surface discovery & DFS subagent tree builder
 │               ├── sqlite_rpc.mjs           # Read-only SQLite URI & Language Server RPC client

@@ -320,11 +320,12 @@ export function App() {
 
   const activeTab = activePanel === 'conversation' ? convTab : globalTab;
   const openMenuParam = urlParams.get('openMenu') || '';
+  const initialGranularityParam = urlParams.get('granularity') || 'day';
 
   return (
     <div
       id="appShell"
-      className="h-screen max-h-screen w-full max-w-[560px] mx-auto py-2 px-2 sm:px-3 flex flex-col gap-2 overflow-hidden bg-white text-[#1d1d1f] font-sans text-[13px] leading-[1.45] antialiased"
+      className="h-screen max-h-screen w-full max-w-[560px] mx-auto py-3 px-3.5 sm:py-3.5 sm:px-4 flex flex-col gap-5 overflow-hidden bg-white text-[#1d1d1f] font-sans text-[13px] leading-[1.45] antialiased"
     >
       <TopBar
         t={t}
@@ -368,6 +369,7 @@ export function App() {
             data={telemetry}
             t={t}
             lang={lang}
+            initialGranularity={initialGranularityParam}
             selectedConversationId={selectedConversationId}
             onSelectConversation={handleSelectConversation}
           />

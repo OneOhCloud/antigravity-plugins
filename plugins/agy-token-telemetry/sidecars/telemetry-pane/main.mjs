@@ -162,7 +162,7 @@ export async function startTelemetrySidecar() {
 
   const handleConversationsRequest = async () => ({
     activeConversationId: app.config.conversationId || '',
-    conversations: listAvailableConversations({ limit: 60 }),
+    conversations: listAvailableConversations({ limit: 500 }),
   });
 
   app.api('/api/conversations', handleConversationsRequest, 'POST');

@@ -61,7 +61,7 @@ async function buildTelemetryUi() {
 
   const prodHtml = [
     '<!DOCTYPE html>',
-    '<html lang="en" class="h-full overflow-hidden bg-white text-[#1d1d1f] antialiased">',
+    '<html lang="en" class="w-full max-w-full h-full overflow-hidden bg-white text-[#1d1d1f] antialiased">',
     '<head>',
     '  <meta charset="UTF-8" />',
     '  <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
@@ -69,8 +69,8 @@ async function buildTelemetryUi() {
     '  <link rel="stylesheet" href="/assets/app.css" />',
     '  <script src="/preload.js"></script>',
     '</head>',
-    '<body class="h-full overflow-hidden bg-white text-[#1d1d1f] text-[13px] leading-[1.45] font-sans antialiased">',
-    '  <div id="root" class="h-full overflow-hidden"></div>',
+    '<body class="w-full max-w-full h-full overflow-hidden bg-white text-[#1d1d1f] text-[13px] leading-[1.45] font-sans antialiased">',
+    '  <div id="root" class="w-full max-w-full h-full overflow-hidden"></div>',
     '  <script src="/assets/app.js"></script>',
     '</body>',
     '</html>',

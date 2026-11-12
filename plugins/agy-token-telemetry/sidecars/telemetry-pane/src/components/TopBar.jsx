@@ -1,8 +1,8 @@
 /**
- * @fileoverview Streamlined TopBar with unified primary toolbar (`Session | Global`
- * switch + single-row flex navigation tabs + `⋯` Secondary Menu Popover housing
- * History Conversations) and optional Sub-Conversation Scope selector row,
- * styled exclusively with Tailwind CSS.
+ * @fileoverview Single-color Apple HIG TopBar with unified primary toolbar
+ * (`Session | Global` switch + single-row flex navigation tabs + `⋯` Secondary
+ * Menu Popover) and optional Sub-Conversation Scope selector row, styled
+ * exclusively with Tailwind CSS.
  */
 
 import React, { useMemo } from 'react';
@@ -97,6 +97,7 @@ export function TopBar({
     if (!sh || !sh.subagentCount) return [];
 
     const treeTotals = sh.treeTotals || {};
+    const liveTreeTotals = sh.liveTreeTotals || null;
     const rootTotals = sh.rootTotals || {};
     const shortRootId = String(sh.rootConversationId || '').slice(0, 8);
     let rootTitle = sh.rootTitle || '';
@@ -104,8 +105,24 @@ export function TopBar({
       rootTitle = t('untitledSession')(shortRootId);
     }
 
-    const treeStatus = sh.treeLifecycleStatus || 'inactive';
+    const treeStatus =
+      liveTreeTotals && liveTreeTotals.liveNodeCount > 0
+        ? 'active'
+        : sh.treeLifecycleStatus || 'inactive';
     const rootStatus = sh.rootLifecycleStatus || 'inactive';
+
+    const treeLabel = liveTreeTotals
+      ? t('fmtScopeTreeLiveOption')(
+          liveTreeTotals.liveNodeCount || 0,
+          liveTreeTotals.activeNodeCount || 0,
+          fmtInt(liveTreeTotals.requestCount || 0),
+          fmtCompact(liveTreeTotals.grandTotalTokens || 0)
+        )
+      : t('fmtScopeTreeOption')(
+          sh.subagentCount,
+          fmtInt(treeTotals.requestCount || 0),
+          fmtCompact(treeTotals.grandTotalTokens || 0)
+        );
 
     const items = [
       {
@@ -120,11 +137,7 @@ export function TopBar({
       },
       {
         value: 'tree',
-        label: t('fmtScopeTreeOption')(
-          sh.subagentCount,
-          fmtInt(treeTotals.requestCount || 0),
-          fmtCompact(treeTotals.grandTotalTokens || 0)
-        ),
+        label: treeLabel,
         lifecycleStatus: treeStatus,
         statusLabel: mapStatusLabel(treeStatus, t),
       },
@@ -168,24 +181,25 @@ export function TopBar({
 
   const navTabBase =
     'flex-1 min-w-0 py-[4px] px-1.5 rounded-[6px] text-[11.5px] text-center whitespace-nowrap truncate cursor-pointer transition-colors';
-  const navTabActive = 'bg-white text-[#1d1d1f] font-semibold';
+  const navTabActive =
+    'bg-white text-[#1d1d1f] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.06)]';
   const navTabInactive =
-    'bg-transparent text-[#515154] font-medium hover:opacity-88';
+    'bg-transparent text-[#515154] font-medium hover:text-[#1d1d1f]';
 
   return (
-    <header className="bg-[#f5f5f7] rounded-[16px] py-2 px-2.5 flex flex-col gap-1.5 shrink-0 min-w-0 relative z-30">
-      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-1.5 items-center min-w-0 relative">
+    <header className="flex flex-col gap-2 shrink-0 min-w-0 relative z-30">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2 items-center min-w-0 relative">
         <div
-          className="inline-grid grid-cols-2 gap-0.5 bg-[#e8e8ed] p-[3px] rounded-[8px] shrink-0"
+          className="inline-grid grid-cols-2 gap-0.5 bg-[#f5f5f7] p-[3px] rounded-[8px] shrink-0"
           role="group"
         >
           <button
             type="button"
             id="panelBtnConversation"
-            className={`text-[11.5px] font-semibold py-[4px] px-[9px] rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
+            className={`text-[11.5px] font-semibold py-[4px] px-[10px] rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
               activePanel === 'conversation'
-                ? 'bg-white text-[#1d1d1f]'
-                : 'bg-transparent text-[#515154] hover:opacity-88'
+                ? 'bg-white text-[#1d1d1f] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                : 'bg-transparent text-[#515154] hover:text-[#1d1d1f]'
             }`}
             onClick={() => onSelectPanel('conversation')}
           >
@@ -194,10 +208,10 @@ export function TopBar({
           <button
             type="button"
             id="panelBtnGlobal"
-            className={`text-[11.5px] font-semibold py-[4px] px-[9px] rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
+            className={`text-[11.5px] font-semibold py-[4px] px-[10px] rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
               activePanel === 'global'
-                ? 'bg-white text-[#1d1d1f]'
-                : 'bg-transparent text-[#515154] hover:opacity-88'
+                ? 'bg-white text-[#1d1d1f] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                : 'bg-transparent text-[#515154] hover:text-[#1d1d1f]'
             }`}
             onClick={() => onSelectPanel('global')}
           >
@@ -206,7 +220,7 @@ export function TopBar({
         </div>
 
         <nav
-          className="flex-1 min-w-0 flex flex-nowrap items-center gap-0.5 bg-[#e8e8ed] p-[3px] rounded-[8px]"
+          className="nav-tabs flex-1 min-w-0 flex flex-nowrap items-center gap-0.5 bg-[#f5f5f7] p-[3px] rounded-[8px]"
           role="tablist"
         >
           {activePanel === 'conversation' ? (
@@ -276,11 +290,11 @@ export function TopBar({
 
       {activePanel === 'conversation' && subagentOptions.length > 0 && (
         <div
-          className="grid grid-cols-[auto_minmax(0,1fr)] gap-1.5 items-center min-w-0 relative"
+          className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 items-center min-w-0 relative"
           id="subagentScopeRow"
         >
           <span
-            className="inline-flex items-center gap-1 font-semibold text-[11px] text-[#515154] py-[5px] px-[7px] rounded-[8px] bg-[#e8e8ed] whitespace-nowrap select-none"
+            className="inline-flex items-center gap-1 font-semibold text-[11px] text-[#515154] py-[5px] px-2 rounded-[8px] bg-[#f5f5f7] whitespace-nowrap select-none"
             id="subagentScopeBadge"
           >
             <svg

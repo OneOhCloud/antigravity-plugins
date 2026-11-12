@@ -33,7 +33,7 @@ git clone https://github.com/OneOhCloud/antigravity-plugins.git
 
 | 插件名称 | 类型 | 版本 | 支持语言 | 功能简介 |
 | :--- | :--- | :--- | :--- | :--- |
-| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.zh-CN.md) | Sidecar 侧边栏面板 / 遥测 | `1.2.2` | `en`, `zh-CN` | 实时统计会话 Token 消耗、`gen_metadata` 模型可读名称与底层端点标识映射、单步有效请求端到端 `tok/s` 速率，并展示 `AGY_CLI_AUTO_COMPACT_OVERRIDE` 与 `contextWindow` 状态。 |
+| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.zh-CN.md) | Sidecar 侧边栏面板 / 遥测 | `1.3.0` | `en`, `zh-CN` | 实时统计会话 Token 消耗、全局近 3 个月历史用量趋势、本机 `CPU / 负载 / 内存 / 磁盘` 系统指标、`gen_metadata` 模型与端点映射、活跃实时 `tok/s` 速率及上下文窗口晶圆矩阵。 |
 
 ---
 
@@ -57,6 +57,8 @@ antigravity-plugins/
 │               ├── sidecar.json             # Sidecar 进程与侧边栏视图配置
 │               ├── main.mjs                 # Sidecar 服务与静态资源入口
 │               ├── collector.mjs            # 遥测聚合与全量模型字典门面
+│               ├── history_aggregator.mjs   # 增量持久化近 3 个月（92 天）全局历史账本聚合器
+│               ├── host_metrics.mjs         # 本机 CPU、负载、物理内存与磁盘容量采样器
 │               ├── throughput_aggregator.mjs # 多代理总吞吐与容量累加器
 │               ├── session_tree.mjs         # 双端会话发现与多级子代理深度优先树构建
 │               ├── sqlite_rpc.mjs           # 只读 SQLite URI 与 Language Server RPC 客户端

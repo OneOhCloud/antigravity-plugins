@@ -1,11 +1,11 @@
 {
   "name": "antigravity-plugins",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build_ui.mjs",
-    "test": "node --test .local/tests/collector.test.mjs"
+    "test": "node --test .local/tests/collector.test.mjs .local/tests/history_live_system.test.mjs"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.5",

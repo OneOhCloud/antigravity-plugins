@@ -2,7 +2,7 @@
 
 [English](./README.md) | **简体中文**
 
-专为 Antigravity 2.0 与 `agy` CLI 打造的零外部依赖、非侵入式只读 Sidecar 侧边栏遥测插件（`SIDECAR_UI_ENTRYPOINT_AUX_PANE`）。实时解析 `gen_metadata` 原生 Protobuf 记录与 Language Server 遥测接口，展示会话 Token 消耗结构、可读模型名称与底层端点标识映射、单步有效请求端到端 `tok/s` 速率，以及 `contextWindow` 与 `AGY_CLI_AUTO_COMPACT_OVERRIDE` 参数状态。
+专为 Antigravity 2.0 与 `agy` CLI 打造的零外部依赖、非侵入式只读 Sidecar 侧边栏遥测插件（`SIDECAR_UI_ENTRYPOINT_AUX_PANE`）。采用 Apple HIG 纯白一体（`#FFFFFF`）无框视觉体系，实时解析 `gen_metadata` 原生 Protobuf 记录、SQLite 步骤时间戳、Language Server 遥测接口与宿主机系统指标，一站式呈现当前会话 Token 消耗、全局近三个月历史用量趋势、本机系统微尺、模型与底层端点映射、活跃实时 `tok/s` 速率及上下文窗口晶圆矩阵。
 
 ---
 
@@ -16,20 +16,18 @@ curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main
 
 ## 核心特性
 
-1. **会话 Token 消耗与缓存命中分析**：
-   - 实时聚合 App 与 CLI 会话的 `inputTokens`、`cacheReadTokens`、`outputTokens`、`thinkingOutputTokens` 与 `responseOutputTokens`。
-   - 直观呈现输入缓存命中率（`cacheReadTokens / (inputTokens + cacheReadTokens)`）及输出端思考推理与正式回复的构成比例。
-2. **模型可读名称与底层端点标识映射**：
-   - 自动提取当前会话及本机历史会话的 `modelDisplayName`（可读名称）、`responseModel`（底层端点 ID）、`model` 枚举值（含 Antigravity `2.31+` `M1000+` 整数枚举自动解析）、`plannerConfig.maxOutputTokens` 与 `apiProvider` 提供商，构建本机全量模型字典。
-3. **端到端（E2E）有效速率与子对话范围控制（`tok/s`）**：
-   - 默认展示 **仅主会话（`root`）** 指标，避免子代理大吞吐掩盖主会话上下文水位；支持随时切换为 **全部（主会话 + 子代理）** 全树累加或单独查看指定子代理。
+1. **全局近三个月历史 Token 用量 KPI 与序列柱图钻取**：
+   - 自动扫描 App 与 CLI 全量本地会话数据库并维护按文件签名增量更新的日桶持久化账本（支持最长滚动 `92` 天与近 3 个自然月，旧 `.db` 清理后仍完整保留历史记录）。
+   - 在 `全局 -> 会话` 顶部以 **左主右副** 结构默认展示 **本月 / 本周 / 今日** 用量与同口径环比趋势，下方内嵌可翻页的 **日 / 周 / 月** 序列柱图，支持点选查看任意具体某日、某周、某月的 `总计 / 输入 / 输出 / 调用` 明细。
+2. **`对话 -> 全部` 活跃实时过滤（排除不活跃/已完成代理与 1 分钟前数据）**：
+   - 默认展示 **主会话（`root`）** 指标；切换至 **全部实时（`tree`）** 范围时，严格排除 `已完成` 与 `不活跃` 子代理并过滤超过 **1 分钟（`60s`）** 的历史步骤，杜绝历史已完成子代理叠加导致的速率虚高与窗口容量失真。
+3. **对话概览右上侧本机系统指标簇**：
+   - 在 `对话 -> 概览` 首行右侧嵌入 `2x2` 本机系统微尺簇，实时采样 **处理器** 占用率、**负载**（`1m` / `5m`）、**内存**（macOS 活动监视器 `vm_stat` 同口径物理内存 / Linux `MemAvailable`）与 **磁盘** 剩余空间，每项指标配备 `1:1` 唯一语义细进度条。
 4. **API 真实水位校准的整行上下文窗口晶圆矩阵与手动 `/compact` 即时刷新**：
-   - 以 API 真实发送上下文水位（`inputTokens + cacheReadTokens`）校准晶圆格子矩阵占用（`contextTokensUsed / maxContextTokens`）与剩余可用容量，消除未持久化的单轮思考推理 Token 带来的虚高误差，同时在悬浮提示中保留客户端 `estimatedTokensUsed` 估算值对照；精准识别 SQLite `steps` 表中的 `CORTEX_STEP_TYPE_CHECKPOINT`（`step_type = 23`）压缩检查点并过滤取消态空记录，压缩完成后无需等待下一轮提问即可立即刷新窗口水位。
-5. **React 18 + Tailwind CSS v4 生产级架构、二级菜单历史对话与中英双语（`en` / `zh-CN`）**：
-   - **对话面板（默认进入）**：顶栏主行精简合并为「`对话 | 全局` + `概览 | 明细` + `⋯`」；会话切换入口收纳至右上角 `⋯` 二级菜单顶部「历史对话」卡片，点击后在恒定高度弹层内原位切换并直接展示包含当前对话在内的完整工作区对话列表。
-   - **全局面板**：下设 **会话记录**、**模型字典** 与 **配置与步骤**，并在 `⋯` 菜单集成多语言切换（`EN` / `中文`）与刷新周期设置（默认 `5s` + 窗口聚焦即时刷新）。
-   - **三态纯矢量状态指示器**：主会话与子对话列表在标题前通过纯内联 SVG 展示对话状态（正常活跃 = `#34C759` 绿色圆点、不活跃 = `#86868B` 灰色圆点、已完成 = `#34C759` 绿色对勾）。
-   - 支持 `1s`、`5s`、`10s`、`30s` 与 `手动` 刷新速率。
+   - 以 API 真实发送上下文水位（`inputTokens + cacheReadTokens`）校准晶圆格子矩阵占用并识别 `CORTEX_STEP_TYPE_CHECKPOINT`（`step_type = 23`）压缩检查点，手动 `/compact` 后无需等待下一轮提问即可立即刷新窗口水位。
+5. **模型字典映射与 Apple HIG 纯白一体中英双语界面（`en` / `zh-CN`）**：
+   - 跨最多 500 个本地会话提取 `modelDisplayName`、`responseModel`、`MODEL_PLACEHOLDER_*`（兼容 `2.31+` `M1000+` 整数枚举）、`plannerConfig.maxOutputTokens` 与 `apiProvider`。
+   - 基于 React 18 + Tailwind CSS v4 生产级编译产物（`dist/`）托管，全局融合单一纯白底色与 `4pt / 8pt` 倍律间距，支持 `1s`、`5s`（默认）、`10s`、`30s` 与 `手动` 刷新周期。
 
 ---
 

@@ -2,7 +2,7 @@
 
 **English** | [简体中文](./README.zh-CN.md)
 
-A non-invasive, zero-dependency Sidecar Auxiliary Pane (`SIDECAR_UI_ENTRYPOINT_AUX_PANE`) plugin for Antigravity 2.0 and `agy` CLI. It decodes real-time `gen_metadata` records and Language Server telemetry to display session token consumption, readable model names vs. underlying endpoint identifiers, end-to-end `tok/s` velocity, and `contextWindow` / `AGY_CLI_AUTO_COMPACT_OVERRIDE` configuration status.
+A non-invasive, zero-dependency Sidecar Auxiliary Pane (`SIDECAR_UI_ENTRYPOINT_AUX_PANE`) plugin for Antigravity 2.0 and `agy` CLI. Styled in an Apple HIG single-color pure-white (`#FFFFFF`) cardless layout, it decodes real-time `gen_metadata` records, SQLite step timestamps, Language Server telemetry, and host OS counters to present session token usage, 3-month global historical KPIs, host system metrics, model-to-endpoint mapping, live `tok/s` velocity, and `contextWindow` utilization.
 
 ---
 
@@ -16,20 +16,18 @@ curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main
 
 ## Core Capabilities
 
-1. **Session Token Telemetry & Cache Hit Analysis**:
-   - Tracks `inputTokens`, `cacheReadTokens`, `outputTokens`, `thinkingOutputTokens`, and `responseOutputTokens` across all steps in any App or CLI conversation.
-   - Visualizes input cache hit ratio (`cacheReadTokens / (inputTokens + cacheReadTokens)`) and thinking vs. response output token proportions.
-2. **Readable Model Name & Underlying Endpoint Mapping**:
-   - Extracts `modelDisplayName` (e.g. `Gemini 4 Carbon (High)`), `responseModel` endpoint ID (e.g. `gemini-4-carbon`), `model` enum (`MODEL_PLACEHOLDER_*`, including Antigravity `2.31+` `M1000+` integer enums), `plannerConfig.maxOutputTokens`, and `apiProvider` across both the active session and a global local registry of up to 60 conversations.
-3. **End-to-End (`E2E`) `tok/s` Velocity & Sub-Session Scope Control**:
-   - Defaults to **Main Session Only (`root`)** scope so sub-agent activity does not mask main-thread metrics, while supporting one-click switching to **All (Main + Sub)** (`tree`) or individual sub-agent scopes.
+1. **Global 3-Month Historical Token Usage KPIs & Sequence Bar Explorer**:
+   - Maintains an incremental mtime-keyed daily ledger across all App and CLI conversations (`92` rolling days + 3 calendar months, surviving old `.db` cleanup).
+   - Displays **MTD** (primary left hero) alongside **WTD** and **Today** (right secondary columns) with fair period-over-period trend comparisons, plus an interactive **Day / Week / Month** sequence bar chart with window paging to inspect `Total / Input / Output / Calls` for any specific day, week, or month.
+2. **Real-Time Live Filtering in `Live (All)` (`tree`) Scope**:
+   - Defaults to **Main Session (`root`)** scope; when switched to **Live (`tree`)** scope, strictly excludes `completed` and `inactive` sub-agents and filters out steps older than **1 minute (`60s`)** so velocity and context window metrics reflect true live activity.
+3. **Host System Metrics Cluster in Session Overview**:
+   - Samples real-time **CPU** utilization (`os.cpus()` tick delta), **Load Average** (`1m` / `5m`), **Physical Memory** (macOS Activity Monitor `vm_stat` formula / Linux `MemAvailable`), and **Disk** free capacity (`fs.statfsSync`) in a compact `2x2` top-right cluster with 1:1 progress bars.
 4. **API-Calibrated Context Window Wafer Matrix & Immediate Manual `/compact` Refresh**:
-   - Displays real-time context window utilization (`contextTokensUsed / maxContextTokens`) calibrated to actual API prompt tokens (`inputTokens + cacheReadTokens`) so ephemeral reasoning tokens never falsely inflate window usage, while retaining client `estimatedTokensUsed` heuristic comparison in tooltips and immediate post-compaction recalculation from `CORTEX_STEP_TYPE_CHECKPOINT` (`step_type = 23`) steps without waiting for the next prompt.
-5. **React 18 + Tailwind CSS v4 Production Architecture, Secondary History Menu & Bilingual UI (`en` / `zh-CN`)**:
-   - **Session Panel (Default)**: Scoped to the active workspace with a streamlined single-row primary toolbar (`Session | Global` + `Overview | Details` + `⋯`); clicking `History Sessions` inside the `⋯` secondary menu switches in-place within a constant-height popover to list all workspace conversations (including the current session).
-   - **Global Panel**: Features **Global Sessions**, **Model Registry**, and **Config & Steps**, along with `EN` / `中文` toggle and refresh interval controls (`1s`, `5s` default, `10s`, `30s`, `Manual`, plus automatic focus/visibility refresh).
-   - **Tri-State Vector SVG Status Indicators**: Custom React dropdown lists display a green dot (`#34C759`) for active conversations, a gray dot (`#86868B`) for inactive conversations, and a green checkmark (`#34C759`) for completed sub-agent conversations.
-   - Supports `1s`, `5s`, `10s`, `30s`, and `Manual` refresh intervals.
+   - Calibrates context window occupancy (`contextTokensUsed / maxContextTokens`) to actual API prompt tokens (`inputTokens + cacheReadTokens`) and immediately recalculates usage from `CORTEX_STEP_TYPE_CHECKPOINT` (`step_type = 23`) steps upon manual `/compact`.
+5. **Readable Model Name & Endpoint Registry + Apple HIG Single-Color Bilingual UI (`en` / `zh-CN`)**:
+   - Extracts `modelDisplayName`, `responseModel`, `MODEL_PLACEHOLDER_*` (`M1000+` compatible), `plannerConfig.maxOutputTokens`, and `apiProvider` across up to 500 local conversations.
+   - Pure React 18 + Tailwind CSS v4 production bundle (`dist/`) on a unified `#FFFFFF` canvas with 4pt/8pt spacing rhythm, tri-state vector SVG status indicators, and `1s`, `5s` (default), `10s`, `30s`, or `Manual` refresh intervals.
 
 ---
 

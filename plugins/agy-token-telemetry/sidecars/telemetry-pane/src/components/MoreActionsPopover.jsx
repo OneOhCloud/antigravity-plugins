@@ -79,10 +79,10 @@ export function MoreActionsPopover({
       <button
         type="button"
         id="moreActionsBtn"
-        className={`inline-flex items-center justify-center w-[30px] h-7 p-0 rounded-[8px] cursor-pointer hover:opacity-88 transition-opacity ${
+        className={`inline-flex items-center justify-center w-[30px] h-7 p-0 rounded-[8px] cursor-pointer transition-colors ${
           isOpen
             ? 'bg-[#1d1d1f] text-white'
-            : 'bg-[#e8e8ed] text-[#1d1d1f]'
+            : 'bg-[#f5f5f7] text-[#1d1d1f] hover:bg-[#ececef]'
         }`}
         title={`${t('moreActionsTooltip')} (${selectedOption.label} · ${activePollLabel} · ${statusTimestamp})`}
         aria-haspopup="menu"

@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import {
   decodeCheckpointStepMetadata,
   decodeGeneratorMetadataProto,
+  decodeStepTimestampMetadata,
   decodeTrajectoryHierarchyMetadata,
 } from './proto_decoder.mjs';
 
@@ -25,6 +26,7 @@ export const APP_SURFACES = Object.freeze([
 const sqliteFileCache = new Map();
 const sqliteCheckpointCache = new Map();
 const sqliteHierarchyCache = new Map();
+const sqliteStepTimestampCache = new Map();
 const transcriptFileCache = new Map();
 
 export function getGeminiRootDir(customHomeDir) {
@@ -365,6 +367,52 @@ export function readStepTimestampsFromTranscript(geminiRoot, conversationId) {
     }
   }
   return new Map();
+}
+
+/**
+ * Reads per-step timestamps from SQLite `steps.metadata` header slices (`tag 1`
+ * `createdAt` and `tag 8` `completedAt`), cached by `mtimeMs:size:walMtime`.
+ */
+export function readStepTimestampsFromSqlite(dbPath) {
+  if (!dbPath || !existsSync(dbPath)) {
+    return new Map();
+  }
+  let cacheKey = '';
+  try {
+    const dbStat = statSync(dbPath);
+    if (dbStat.size === 0) return new Map();
+    const walPath = `${dbPath}-wal`;
+    const walMtime = existsSync(walPath) ? statSync(walPath).mtimeMs : 0;
+    cacheKey = `${dbStat.mtimeMs}:${dbStat.size}:${walMtime}`;
+    const cached = sqliteStepTimestampCache.get(dbPath);
+    if (cached && cached.cacheKey === cacheKey) {
+      return cached.map;
+    }
+  } catch {
+    // Proceed without cache on stat failure
+  }
+
+  const rows = runSqliteJsonQuery(
+    dbPath,
+    'SELECT idx, hex(substr(metadata, 1, 64)) AS hex_meta FROM steps;'
+  );
+  const map = new Map();
+  for (const row of rows) {
+    if (row.idx === undefined || !row.hex_meta) continue;
+    try {
+      const decoded = decodeStepTimestampMetadata(row.hex_meta);
+      if (decoded.timestampMs > 0) {
+        map.set(Number(row.idx), decoded);
+      }
+    } catch {
+      // Ignore malformed step metadata header
+    }
+  }
+
+  if (cacheKey) {
+    sqliteStepTimestampCache.set(dbPath, { cacheKey, map });
+  }
+  return map;
 }
 
 /**

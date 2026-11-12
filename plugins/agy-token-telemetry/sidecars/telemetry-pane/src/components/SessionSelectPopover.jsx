@@ -51,7 +51,7 @@ export function SessionSelectPopover({
       <button
         type="button"
         id={id}
-        className="w-full min-w-0 flex items-center gap-[7px] py-[5px] px-2.5 rounded-[8px] bg-[#e8e8ed] text-[#1d1d1f] text-[12px] text-left cursor-pointer hover:opacity-88 transition-opacity"
+        className="w-full min-w-0 flex items-center gap-[7px] py-[5px] px-2.5 rounded-[8px] bg-[#f5f5f7] text-[#1d1d1f] text-[12px] text-left cursor-pointer hover:bg-[#ececef] transition-colors"
         title={tooltip || selectedOption.label}
         aria-haspopup="listbox"
         aria-expanded={isOpen}

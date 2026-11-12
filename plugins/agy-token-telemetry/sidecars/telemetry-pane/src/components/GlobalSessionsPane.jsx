@@ -1,10 +1,12 @@
 /**
- * @fileoverview Global Panel -> Global Sessions tab (`#pane-sessions`), styled
- * exclusively with Tailwind CSS utility classes.
+ * @fileoverview Global Panel -> Sessions tab (`#pane-sessions`), embedding the
+ * 3-month historical token usage KPI + sequence bar explorer above the global
+ * session history table on a unified pure-white Apple HIG canvas.
  */
 
 import React, { useMemo } from 'react';
 import { getI18nBridge } from '../utils.js';
+import { GlobalHistorySection } from './GlobalHistorySection.jsx';
 import { StatusIndicator } from './StatusIndicator.jsx';
 
 function formatShortTimestamp(isoStr, lang) {
@@ -31,6 +33,7 @@ export function GlobalSessionsPane({
   data,
   t,
   lang,
+  initialGranularity = 'day',
   selectedConversationId,
   onSelectConversation,
 }) {
@@ -46,108 +49,47 @@ export function GlobalSessionsPane({
     [data?.globalConversations, data?.availableConversations]
   );
 
-  const currentWorkspace = data?.currentWorkspace || {};
-  const workspaceSessionsCount = Array.isArray(data?.availableConversations)
-    ? data.availableConversations.length
-    : 0;
-
   const stats = useMemo(() => {
     const workspaces = new Set();
     let activeCount = 0;
-    let totalSubagents = 0;
 
     for (const c of globalConversations) {
       if (c.workspaceName) workspaces.add(c.workspaceName);
       if (c.lifecycleStatus === 'active') activeCount += 1;
-      totalSubagents += Number(c.subagentCount || 0);
     }
 
     return {
       workspaceCount: workspaces.size,
       activeCount,
-      totalSubagents,
     };
   }, [globalConversations]);
 
   return (
     <section
-      className="flex-1 min-h-0 max-h-full flex flex-col gap-2 overflow-hidden"
+      className="flex-1 min-h-0 max-h-full flex flex-col gap-5 overflow-y-auto overflow-x-hidden pr-0.5"
       id="pane-sessions"
     >
-      <div className="shrink-0 grid grid-cols-2 gap-2 items-stretch">
-        <div className="bg-[#f5f5f7] rounded-[16px] py-3 px-[15px] flex flex-col gap-1.5 shrink-0 min-w-0 overflow-hidden">
-          <div className="flex items-baseline justify-between gap-2 shrink-0">
-            <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] truncate">
-              {t('gsTotalSessionsTitle')}
-            </span>
-            <span
-              className="font-mono text-[11px] text-[#86868b] tabular-nums truncate"
-              id="gsActiveMeta"
-            >
-              {t('fmtActiveSubagentsSummary')(
-                stats.activeCount,
-                stats.totalSubagents
-              )}
-            </span>
-          </div>
-          <div>
-            <span
-              className="font-mono text-[26px] font-bold text-[#1d1d1f] tracking-[-0.03em] leading-[1.08] tabular-nums"
-              id="gsTotalSessionsVal"
-            >
-              {fmtInt(globalConversations.length)}
-            </span>
-            <span className="text-[12px] font-medium text-[#86868b] ml-1">
-              {t('unitSessions')}
-            </span>
-          </div>
-          <div
-            className="font-mono text-[11px] text-[#515154] tabular-nums truncate"
-            id="gsCurrentWorkspaceSub"
-          >
-            {t('fmtCurrentWorkspaceSessions')(
-              currentWorkspace.name || '-',
-              workspaceSessionsCount
-            )}
-          </div>
-        </div>
+      <GlobalHistorySection
+        history={data?.globalTokenHistory}
+        t={t}
+        lang={lang}
+        initialGranularity={initialGranularity}
+      />
 
-        <div className="bg-[#f5f5f7] rounded-[16px] py-3 px-[15px] flex flex-col gap-1.5 shrink-0 min-w-0 overflow-hidden">
-          <div className="flex items-baseline justify-between gap-2 shrink-0">
-            <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] truncate">
-              {t('gsWorkspacesTitle')}
-            </span>
-            <span className="font-mono text-[11px] text-[#86868b] tabular-nums truncate">
-              {t('gsWorkspaceMeta')}
-            </span>
-          </div>
-          <div>
-            <span
-              className="font-mono text-[26px] font-bold text-[#1d1d1f] tracking-[-0.03em] leading-[1.08] tabular-nums"
-              id="gsWorkspacesCount"
-            >
-              {fmtInt(stats.workspaceCount)}
-            </span>
-            <span className="text-[12px] font-medium text-[#86868b] ml-1">
-              {t('unitWorkspaces')}
-            </span>
-          </div>
-          <div className="font-mono text-[11px] text-[#515154] tabular-nums truncate">
-            {currentWorkspace.name || 'Global'}
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-[#f5f5f7] rounded-[16px] py-3 px-[15px] flex flex-col gap-1.5 flex-1 min-h-0 max-h-full min-w-0 overflow-hidden">
+      <div className="flex flex-col gap-3 flex-1 min-h-[140px] max-h-full min-w-0">
         <div className="flex items-baseline justify-between gap-2 shrink-0">
           <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] truncate">
             {t('gsTableTitle')}
           </span>
           <span
-            className="font-mono text-[11px] text-[#86868b] tabular-nums truncate"
+            className="font-mono text-[10.5px] text-[#86868b] tabular-nums truncate"
             id="gsTableCount"
           >
-            {t('fmtAcrossSessions')(globalConversations.length)}
+            {t('fmtSessionsHeaderMeta')(
+              fmtInt(globalConversations.length),
+              fmtInt(stats.workspaceCount),
+              fmtInt(stats.activeCount)
+            )}
           </span>
         </div>
         <div className="flex-1 min-h-0 max-h-full overflow-y-auto overflow-x-hidden">
@@ -157,13 +99,13 @@ export function GlobalSessionsPane({
           >
             <thead>
               <tr>
-                <th className="w-[48%] sticky top-0 bg-[#f5f5f7] text-[11px] font-semibold text-[#86868b] pt-1 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
+                <th className="w-[48%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
                   {t('thSessionTitle')}
                 </th>
-                <th className="w-[30%] sticky top-0 bg-[#f5f5f7] text-[11px] font-semibold text-[#86868b] pt-1 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
+                <th className="w-[30%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
                   {t('thWorkspace')}
                 </th>
-                <th className="w-[22%] sticky top-0 bg-[#f5f5f7] text-[11px] font-semibold text-[#86868b] pt-1 pr-0 pb-2 pl-2 text-right whitespace-nowrap z-[1]">
+                <th className="w-[22%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-0 pb-2 pl-2 text-right whitespace-nowrap z-[1]">
                   {t('thStepsSubagents')}
                 </th>
               </tr>
@@ -186,8 +128,8 @@ export function GlobalSessionsPane({
                   subCount > 0 ? ` · ${t('fmtSubagentsBadge')(subCount)}` : '';
 
                 const cellBg = isSelected
-                  ? 'bg-[#e8e8ed]'
-                  : 'group-hover:bg-[#e8e8ed]';
+                  ? 'bg-[#f5f5f7]'
+                  : 'group-hover:bg-[#f5f5f7]';
 
                 return (
                   <tr
@@ -201,7 +143,7 @@ export function GlobalSessionsPane({
                     }}
                   >
                     <td
-                      className={`text-[12px] text-[#1d1d1f] py-[7px] pr-2 pl-1.5 align-top rounded-l-[8px] ${cellBg}`}
+                      className={`text-[12px] text-[#1d1d1f] py-2 pr-2 pl-1.5 align-top rounded-l-[8px] ${cellBg}`}
                     >
                       <div className="flex items-center gap-1.5 min-w-0">
                         <StatusIndicator
@@ -212,12 +154,12 @@ export function GlobalSessionsPane({
                           {title}
                         </strong>
                       </div>
-                      <div className="font-mono tabular-nums text-[#86868b] text-[11px]">
+                      <div className="font-mono tabular-nums text-[#86868b] text-[10.5px] mt-0.5">
                         {`${shortId}${subBadge}`}
                       </div>
                     </td>
                     <td
-                      className={`text-[12px] text-[#1d1d1f] py-[7px] pr-2 pl-0 align-top ${cellBg}`}
+                      className={`text-[12px] text-[#1d1d1f] py-2 pr-2 pl-0 align-top ${cellBg}`}
                     >
                       <div>
                         <strong className="block truncate">
@@ -225,21 +167,21 @@ export function GlobalSessionsPane({
                         </strong>
                       </div>
                       <div
-                        className="font-mono tabular-nums text-[#86868b] text-[11px] block truncate"
+                        className="font-mono tabular-nums text-[#86868b] text-[10.5px] block truncate mt-0.5"
                         title={wsBranch}
                       >
                         {wsBranch}
                       </div>
                     </td>
                     <td
-                      className={`text-[12px] text-[#1d1d1f] py-[7px] pr-1.5 pl-2 align-top text-right whitespace-nowrap font-mono tabular-nums rounded-r-[8px] ${cellBg}`}
+                      className={`text-[12px] text-[#1d1d1f] py-2 pr-1.5 pl-2 align-top text-right whitespace-nowrap font-mono tabular-nums rounded-r-[8px] ${cellBg}`}
                     >
                       <div>
                         <strong>
                           {t('fmtStepsCount')(fmtInt(conv.stepCount || 0))}
                         </strong>
                       </div>
-                      <div className="text-[#86868b] text-[11px]">
+                      <div className="text-[#86868b] text-[10.5px] mt-0.5">
                         {formatShortTimestamp(
                           conv.treeLastModifiedTime || conv.lastModifiedTime,
                           lang
