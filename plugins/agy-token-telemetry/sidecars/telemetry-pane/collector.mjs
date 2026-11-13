@@ -51,6 +51,11 @@ export {
 const DEFAULT_RECENT_SAMPLE_WINDOW = 5;
 const DEFAULT_GLOBAL_CONVERSATION_LIMIT = 500;
 const DEFAULT_LIVE_TREE_WINDOW_MS = 60_000;
+const DEFAULT_TREE_MODE = 'active_full';
+
+function normalizeTreeMode(mode) {
+  return mode === 'live_1m' ? 'live_1m' : DEFAULT_TREE_MODE;
+}
 const GLOBAL_REGISTRY_CACHE_TTL_MS = 5000;
 const globalRegistryCache = new Map();
 
@@ -497,8 +502,13 @@ function selectScopedNodeEntries(
   rootConv,
   allHierarchyNodes,
   nodeDataById,
-  { nowMs = Date.now(), liveWindowMs = DEFAULT_LIVE_TREE_WINDOW_MS } = {}
+  {
+    nowMs = Date.now(),
+    liveWindowMs = DEFAULT_LIVE_TREE_WINDOW_MS,
+    treeMode = DEFAULT_TREE_MODE,
+  } = {}
 ) {
+  const normalizedTreeMode = normalizeTreeMode(treeMode);
   if (activeScope === 'tree') {
     const allEntries = allHierarchyNodes
       .map((n) => nodeDataById.get(n.conversationId))
@@ -506,26 +516,31 @@ function selectScopedNodeEntries(
     const activeEntries = allEntries.filter(
       (entry) => entry.summary?.lifecycleStatus === 'active'
     );
-    const liveSelectedEntries = [];
+    const selectedEntries = [];
     const chatStepRecords = [];
     let plannerMaxOutputTokens = 0;
 
     for (const entry of activeEntries) {
-      const liveChatSteps = entry.chatStepRecords.filter((s) =>
-        isRecentStepWithinWindow(s, nowMs, liveWindowMs)
-      );
-      if (liveChatSteps.length === 0) continue;
-      const liveValidSteps = liveChatSteps.filter(isStepValidForE2E);
+      const scopedSteps =
+        normalizedTreeMode === 'live_1m'
+          ? entry.chatStepRecords.filter((s) =>
+              isRecentStepWithinWindow(s, nowMs, liveWindowMs)
+            )
+          : entry.chatStepRecords;
+      if (normalizedTreeMode === 'live_1m' && scopedSteps.length === 0) {
+        continue;
+      }
+      const scopedValidSteps = scopedSteps.filter(isStepValidForE2E);
       plannerMaxOutputTokens += entry.plannerMaxOutputTokens || 0;
-      chatStepRecords.push(...liveChatSteps);
-      liveSelectedEntries.push({
+      chatStepRecords.push(...scopedSteps);
+      selectedEntries.push({
         ...entry,
-        chatStepRecords: liveChatSteps,
-        validStepRecords: liveValidSteps,
+        chatStepRecords: scopedSteps,
+        validStepRecords: scopedValidSteps,
       });
     }
 
-    if (liveSelectedEntries.length > 1) {
+    if (selectedEntries.length > 1) {
       chatStepRecords.sort((a, b) => {
         if (a.timestampMs !== b.timestampMs) {
           return (a.timestampMs || 0) - (b.timestampMs || 0);
@@ -541,7 +556,7 @@ function selectScopedNodeEntries(
     let sumMaxCtx = 0;
     const breakdownMap = new Map();
 
-    for (const entry of liveSelectedEntries) {
+    for (const entry of selectedEntries) {
       const ctxStep = entry.latestContextStep;
       sumUsedCtx +=
         ctxStep?.contextTokensUsed ?? ctxStep?.estimatedTokensUsed ?? 0;
@@ -558,7 +573,7 @@ function selectScopedNodeEntries(
     }
 
     return {
-      selectedNodeEntries: liveSelectedEntries,
+      selectedNodeEntries: selectedEntries,
       plannerMaxOutputTokens,
       chatStepRecords,
       latestContextStep: {
@@ -648,12 +663,16 @@ function buildSessionHierarchySummary(
   );
 
   let activeNodeCount = 0;
+  let activeRequestCount = 0;
+  let activeGrandTotalTokens = 0;
   let liveNodeCount = 0;
   let liveRequestCount = 0;
   let liveGrandTotalTokens = 0;
   for (const entry of allEntries) {
     if (entry.summary?.lifecycleStatus !== 'active') continue;
     activeNodeCount += 1;
+    activeRequestCount += entry.summary?.requestCount || 0;
+    activeGrandTotalTokens += entry.summary?.grandTotalTokens || 0;
     const recentSteps = entry.chatStepRecords.filter((s) =>
       isRecentStepWithinWindow(s, nowMs, liveWindowMs)
     );
@@ -683,6 +702,12 @@ function buildSessionHierarchySummary(
     subagentCount: subagentsList.length,
     maxNestingDepth: rootConv.maxNestingDepth || 0,
     treeTotals,
+    activeTreeTotals: {
+      activeNodeCount,
+      excludedNodeCount: Math.max(0, hierarchyNodeSummaries.length - activeNodeCount),
+      requestCount: activeRequestCount,
+      grandTotalTokens: activeGrandTotalTokens,
+    },
     liveTreeTotals: {
       liveWindowSec: Math.round(liveWindowMs / 1000),
       activeNodeCount,
@@ -713,11 +738,13 @@ export async function collectConversationTelemetry(
     env = process.env,
     recentWindowSize = DEFAULT_RECENT_SAMPLE_WINDOW,
     scope = '',
+    treeMode = DEFAULT_TREE_MODE,
     workspaceUris = [],
     nowMs = Date.now(),
     liveWindowMs = DEFAULT_LIVE_TREE_WINDOW_MS,
   } = {}
 ) {
+  const normalizedTreeMode = normalizeTreeMode(treeMode);
   const geminiRoot = getGeminiRootDir(homeDirPath);
   const globalConversations = listAvailableConversations({
     homeDirPath,
@@ -810,7 +837,7 @@ export async function collectConversationTelemetry(
     rootConv,
     allHierarchyNodes,
     nodeDataById,
-    { nowMs, liveWindowMs }
+    { nowMs, liveWindowMs, treeMode: normalizedTreeMode }
   );
 
   const validThroughputSteps = chatStepRecords.filter(isStepValidForE2E);
@@ -835,6 +862,7 @@ export async function collectConversationTelemetry(
   return {
     conversationId: rootConv.conversationId,
     activeScope,
+    treeMode: normalizedTreeMode,
     scopedConversationId:
       activeScope === 'tree' || activeScope === 'root'
         ? rootConv.conversationId
@@ -871,6 +899,7 @@ export async function collectConversationTelemetry(
     },
     throughput: buildThroughputPayload(validThroughputSteps, recentWindowSize, {
       activeScope,
+      treeMode: normalizedTreeMode,
       selectedNodeEntries,
     }),
     modelsUsed,

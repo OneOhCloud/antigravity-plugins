@@ -33,7 +33,7 @@ git clone https://github.com/OneOhCloud/antigravity-plugins.git
 
 | 插件名称 | 类型 | 版本 | 支持语言 | 功能简介 |
 | :--- | :--- | :--- | :--- | :--- |
-| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.zh-CN.md) | Sidecar 侧边栏面板 / 遥测 | `1.3.0` | `en`, `zh-CN` | 实时统计会话 Token 消耗、全局近 3 个月历史用量趋势、本机 `CPU / 负载 / 内存 / 磁盘` 系统指标、`gen_metadata` 模型与端点映射、活跃实时 `tok/s` 速率及上下文窗口晶圆矩阵。 |
+| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.zh-CN.md) | Sidecar 侧边栏面板 / 遥测 | `1.3.1` | `en`, `zh-CN` | 实时统计会话 Token 消耗、全局近 3 个月历史用量趋势、本机 `CPU / 负载 / 内存 / 磁盘` 系统指标、`gen_metadata` 模型与端点映射、活跃实时 `tok/s` 速率及上下文窗口晶圆矩阵。 |
 
 ---
 

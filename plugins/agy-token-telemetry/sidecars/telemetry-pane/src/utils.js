@@ -50,6 +50,9 @@ export async function apiFetch(url, payload) {
   if (payload && payload.scope) {
     params.set('scope', String(payload.scope));
   }
+  if (payload && payload.treeMode) {
+    params.set('treeMode', String(payload.treeMode));
+  }
   if (payload && payload.recentWindowSize) {
     params.set('recentWindowSize', String(payload.recentWindowSize));
   }

@@ -2,7 +2,7 @@
   "name": "agy-token-telemetry",
   "displayName": "AGY Token & Model Telemetry",
   "description": "Real-time session token usage, 3-month global historical token KPIs, host CPU/Load/Memory/Disk metrics, gen_metadata model & endpoint mapping, end-to-end tok/s velocity, and contextWindow telemetry pane for Antigravity (English & Simplified Chinese).",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "logo": "assets/logo.svg",
   "author": {
     "name": "OneOh Cloud",

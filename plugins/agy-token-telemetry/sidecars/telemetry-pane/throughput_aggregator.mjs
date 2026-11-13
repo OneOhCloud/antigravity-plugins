@@ -314,11 +314,14 @@ export function aggregateScopedTokensAndModels(
   };
 }
 
+const LIVE_RECENT_TURNS = 3;
+
 export function buildThroughputPayload(
   validThroughputSteps,
   recentWindowSize,
-  { activeScope = 'root', selectedNodeEntries = [] } = {}
+  { activeScope = 'root', treeMode = 'active_full', selectedNodeEntries = [] } = {}
 ) {
+  const isLiveMode = treeMode === 'live_1m';
   const latestValidStep =
     validThroughputSteps.length > 0
       ? validThroughputSteps[validThroughputSteps.length - 1]
@@ -338,7 +341,10 @@ export function buildThroughputPayload(
         ? entry.validStepRecords
         : (entry.chatStepRecords || []).filter(isStepValidForE2E);
       if (nodeSteps.length === 0) continue;
-      overallSummaries.push(computeThroughputWindowSummary(nodeSteps));
+      const overallSteps = isLiveMode
+        ? nodeSteps.slice(-LIVE_RECENT_TURNS)
+        : nodeSteps;
+      overallSummaries.push(computeThroughputWindowSummary(overallSteps));
       recentSummaries.push(
         computeThroughputWindowSummary(nodeSteps.slice(-recentWindowSize))
       );
@@ -378,6 +384,9 @@ export function buildThroughputPayload(
   }
 
   const recentValidSteps = validThroughputSteps.slice(-recentWindowSize);
+  const overallValidSteps = isLiveMode
+    ? validThroughputSteps.slice(-LIVE_RECENT_TURNS)
+    : validThroughputSteps;
 
   return {
     recentWindowSize,
@@ -402,6 +411,6 @@ export function buildThroughputPayload(
         }
       : null,
     recentWindow: computeThroughputWindowSummary(recentValidSteps),
-    sessionOverall: computeThroughputWindowSummary(validThroughputSteps),
+    sessionOverall: computeThroughputWindowSummary(overallValidSteps),
   };
 }

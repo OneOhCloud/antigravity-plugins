@@ -28,6 +28,8 @@ export function TopBar({
   onSelectConversation,
   selectedScope,
   onSelectScope,
+  treeMode = 'active_full',
+  onChangeTreeMode,
   pollIntervalMs,
   onChangePollInterval,
   onToggleLang,
@@ -97,6 +99,7 @@ export function TopBar({
     if (!sh || !sh.subagentCount) return [];
 
     const treeTotals = sh.treeTotals || {};
+    const activeTreeTotals = sh.activeTreeTotals || null;
     const liveTreeTotals = sh.liveTreeTotals || null;
     const rootTotals = sh.rootTotals || {};
     const shortRootId = String(sh.rootConversationId || '').slice(0, 8);
@@ -105,24 +108,43 @@ export function TopBar({
       rootTitle = t('untitledSession')(shortRootId);
     }
 
+    const activeNodeCount =
+      activeTreeTotals?.activeNodeCount ?? liveTreeTotals?.activeNodeCount ?? 0;
     const treeStatus =
-      liveTreeTotals && liveTreeTotals.liveNodeCount > 0
-        ? 'active'
-        : sh.treeLifecycleStatus || 'inactive';
+      treeMode === 'live_1m'
+        ? liveTreeTotals && liveTreeTotals.liveNodeCount > 0
+          ? 'active'
+          : sh.treeLifecycleStatus || 'inactive'
+        : activeNodeCount > 0
+          ? 'active'
+          : sh.treeLifecycleStatus || 'inactive';
     const rootStatus = sh.rootLifecycleStatus || 'inactive';
 
-    const treeLabel = liveTreeTotals
-      ? t('fmtScopeTreeLiveOption')(
-          liveTreeTotals.liveNodeCount || 0,
-          liveTreeTotals.activeNodeCount || 0,
-          fmtInt(liveTreeTotals.requestCount || 0),
-          fmtCompact(liveTreeTotals.grandTotalTokens || 0)
-        )
-      : t('fmtScopeTreeOption')(
-          sh.subagentCount,
-          fmtInt(treeTotals.requestCount || 0),
-          fmtCompact(treeTotals.grandTotalTokens || 0)
-        );
+    const treeLabel =
+      treeMode === 'live_1m'
+        ? liveTreeTotals
+          ? t('fmtScopeTreeLiveOption')(
+              liveTreeTotals.liveNodeCount || 0,
+              liveTreeTotals.activeNodeCount || 0,
+              fmtInt(liveTreeTotals.requestCount || 0),
+              fmtCompact(liveTreeTotals.grandTotalTokens || 0)
+            )
+          : t('fmtScopeTreeOption')(
+              sh.subagentCount,
+              fmtInt(treeTotals.requestCount || 0),
+              fmtCompact(treeTotals.grandTotalTokens || 0)
+            )
+        : activeTreeTotals
+          ? t('fmtScopeTreeActiveFullOption')(
+              activeTreeTotals.activeNodeCount || 0,
+              fmtInt(activeTreeTotals.requestCount || 0),
+              fmtCompact(activeTreeTotals.grandTotalTokens || 0)
+            )
+          : t('fmtScopeTreeOption')(
+              sh.subagentCount,
+              fmtInt(treeTotals.requestCount || 0),
+              fmtCompact(treeTotals.grandTotalTokens || 0)
+            );
 
     const items = [
       {
@@ -167,7 +189,7 @@ export function TopBar({
     }
 
     return items;
-  }, [telemetry?.sessionHierarchy, t, fmtInt, fmtCompact]);
+  }, [telemetry?.sessionHierarchy, treeMode, t, fmtInt, fmtCompact]);
 
   const activeConversationOptions =
     activePanel === 'conversation'
@@ -290,7 +312,7 @@ export function TopBar({
 
       {activePanel === 'conversation' && subagentOptions.length > 0 && (
         <div
-          className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 items-center min-w-0 relative"
+          className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2 items-center min-w-0 relative"
           id="subagentScopeRow"
         >
           <span
@@ -322,6 +344,40 @@ export function TopBar({
             tooltip={t('selectScopeTooltip')}
             defaultOpen={openMenu === 'subagent'}
           />
+          <div
+            id="treeModeSwitch"
+            className="inline-grid grid-cols-2 gap-0.5 bg-[#f5f5f7] p-[3px] rounded-[8px] shrink-0"
+            role="group"
+            title={t('treeModeTooltip')}
+            aria-label={t('treeModeTooltip')}
+          >
+            <button
+              type="button"
+              id="treeModeBtnActiveFull"
+              aria-pressed={treeMode !== 'live_1m'}
+              className={`text-[11px] font-semibold py-[3px] px-2 rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
+                treeMode !== 'live_1m'
+                  ? 'bg-white text-[#1d1d1f] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                  : 'bg-transparent text-[#515154] hover:text-[#1d1d1f]'
+              }`}
+              onClick={() => onChangeTreeMode && onChangeTreeMode('active_full')}
+            >
+              {t('treeModeActiveFull')}
+            </button>
+            <button
+              type="button"
+              id="treeModeBtnLive1m"
+              aria-pressed={treeMode === 'live_1m'}
+              className={`text-[11px] font-semibold py-[3px] px-2 rounded-[6px] whitespace-nowrap cursor-pointer transition-colors ${
+                treeMode === 'live_1m'
+                  ? 'bg-white text-[#1d1d1f] shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                  : 'bg-transparent text-[#515154] hover:text-[#1d1d1f]'
+              }`}
+              onClick={() => onChangeTreeMode && onChangeTreeMode('live_1m')}
+            >
+              {t('treeModeLive1m')}
+            </button>
+          </div>
         </div>
       )}
     </header>

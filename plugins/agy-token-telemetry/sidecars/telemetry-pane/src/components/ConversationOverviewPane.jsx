@@ -37,7 +37,7 @@ function computeContextWindowGrid(usedTokens, maxTokens) {
   };
 }
 
-function VelocityBarChart({ stepRecords, activeScope, t }) {
+function VelocityBarChart({ stepRecords, activeScope, treeMode, t }) {
   const { fmtSec } = getI18nBridge();
   const maxBars = 12;
 
@@ -48,7 +48,9 @@ function VelocityBarChart({ stepRecords, activeScope, t }) {
   if (validSteps.length === 0) {
     return (
       <div className="text-[#86868b] text-[11.5px] py-3 text-center">
-        {activeScope === 'tree' ? t('noLiveSamples1m') : t('noValidSamples')}
+        {activeScope === 'tree' && treeMode === 'live_1m'
+          ? t('noLiveSamples1m')
+          : t('noValidSamples')}
       </div>
     );
   }
@@ -183,23 +185,28 @@ export function ConversationOverviewPane({ data, t }) {
   const memPct = Number(sys.memUsagePct || 0);
   const diskPct = Number(sys.diskUsagePct || 0);
 
+  const isLiveMode = data?.treeMode === 'live_1m';
+  const isLive1mTree = data?.activeScope === 'tree' && isLiveMode;
+
   return (
     <section
       className="flex-1 min-h-0 max-h-full flex flex-col gap-5 overflow-y-auto overflow-x-hidden pr-0.5"
       id="pane-overview"
     >
-      <div className="shrink-0 grid grid-cols-[minmax(0,1.04fr)_minmax(0,1fr)] gap-4 items-start min-w-0">
+      <div className="shrink-0 grid grid-cols-[minmax(0,1.04fr)_minmax(0,1fr)] gap-7 sm:gap-8 items-start min-w-0">
         <div className="flex flex-col gap-4 min-w-0">
           <div className="flex flex-col gap-2 min-w-0">
             <div className="flex items-baseline justify-between gap-1.5">
               <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] whitespace-nowrap">
-                {t('tkE2ETitle')}
+                {isLiveMode ? t('tkE2ETitleLive') : t('tkE2ETitle')}
               </span>
               <span
                 className="font-mono text-[10.5px] text-[#86868b] tabular-nums truncate"
                 id="tkSampleCount"
               >
-                {t('fmtValidSamples')(overall.sampleCount || 0)}
+                {isLiveMode
+                  ? t('fmtValidSamples1m')(overall.sampleCount || 0)
+                  : t('fmtValidSamples')(overall.sampleCount || 0)}
               </span>
             </div>
             <div className="leading-none">
@@ -234,7 +241,9 @@ export function ConversationOverviewPane({ data, t }) {
                 className="font-mono text-[10.5px] text-[#86868b] tabular-nums truncate"
                 id="tkCacheMeta"
               >
-                {t('fmtCacheHit')(fmtPct(totals.cacheHitRate))}
+                {isLive1mTree
+                  ? t('fmtCacheHit1m')(fmtPct(totals.cacheHitRate))
+                  : t('fmtCacheHit')(fmtPct(totals.cacheHitRate))}
               </span>
             </div>
             <div className="leading-none">
@@ -352,16 +361,22 @@ export function ConversationOverviewPane({ data, t }) {
             className="font-mono text-[11px] text-[#86868b] tabular-nums truncate"
             id="ovTrendMeta"
           >
-            {t('fmtSessionAvgPeak')(
-              fmtRate(overall.weightedE2ETokPerSec),
-              fmtRate(overall.peakE2ETokPerSec)
-            )}
+            {isLiveMode
+              ? t('fmtLiveAvgPeak')(
+                  fmtRate(overall.weightedE2ETokPerSec),
+                  fmtRate(overall.peakE2ETokPerSec)
+                )
+              : t('fmtSessionAvgPeak')(
+                  fmtRate(overall.weightedE2ETokPerSec),
+                  fmtRate(overall.peakE2ETokPerSec)
+                )}
           </span>
         </div>
         <div id="ovTrendChartSlot">
           <VelocityBarChart
             stepRecords={data?.stepRecords || []}
             activeScope={data?.activeScope}
+            treeMode={data?.treeMode}
             t={t}
           />
         </div>

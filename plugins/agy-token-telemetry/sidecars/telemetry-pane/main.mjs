@@ -124,6 +124,10 @@ export async function startTelemetrySidecar() {
       typeof data.scope === 'string' && data.scope.trim()
         ? data.scope.trim()
         : '';
+    const requestedTreeMode =
+      typeof data.treeMode === 'string' && data.treeMode.trim()
+        ? data.treeMode.trim()
+        : '';
     const rawWorkspaceUris = data.workspaceUris ?? data.workspaceUri ?? [];
     const recentWindowSize =
       Number(data.recentWindowSize) > 0 ? Number(data.recentWindowSize) : 5;
@@ -131,6 +135,7 @@ export async function startTelemetrySidecar() {
     const payload = await collectConversationTelemetry(requestedConvId, {
       recentWindowSize,
       scope: requestedScope,
+      treeMode: requestedTreeMode,
       workspaceUris: rawWorkspaceUris,
     });
     payload.themePrefs = readThemePrefs();

@@ -45,7 +45,8 @@ export const I18N = {
       `${total} sessions · ${ws} ws · ${active} active`,
     fmtStepsSubsCell: (steps, subs) =>
       subs > 0 ? `${steps} · +${subs} sub` : `${steps}`,
-    tkE2ETitle: 'Velocity',
+    tkE2ETitle: 'Avg Rate',
+    tkE2ETitleLive: 'Live Rate',
     tkTotalTitle: 'Tokens',
     tkMixTitle: 'Token Mix',
     tkInputMixDesc: 'Input · Cache / Fresh',
@@ -108,10 +109,18 @@ export const I18N = {
     fmtGlobalToolbarSummary: (sessions, models) =>
       `${sessions} sessions · ${models} models`,
     fmtSubagentsBadge: (n) => `+${n} sub`,
+    treeModeActiveFull: 'Active',
+    treeModeLive1m: 'Live',
+    treeModeTooltip:
+      'Switch KPI mode: Active (full cumulative average rate) / Live (last 3 turns live rate; 1m window for All scope)',
     fmtScopeTreeOption: (subCount, reqs, tok) =>
       `All (Main + ${subCount} Sub) · ${reqs} · ${tok}`,
+    fmtScopeTreeActiveFullOption: (activeCount, reqs, tok) =>
+      `All Active (${activeCount} active) · ${reqs} · ${tok}`,
     fmtScopeTreeLiveOption: (liveCount, activeCount, reqs, tok) =>
       `Live (${liveCount}/${activeCount} active · 1m) · ${reqs} · ${tok}`,
+    fmtValidSamples1m: (n) => `Live · ${n}`,
+    fmtCacheHit1m: (pct) => `Live · Cache ${pct}`,
     fmtScopeRootOption: (title, reqs, tok) =>
       `Main · ${title} (${reqs} · ${tok})`,
     fmtScopeSubOption: (depth, title, shortId, reqs, tok) =>
@@ -130,6 +139,7 @@ export const I18N = {
         ? `${filled}/${total} (${stepTok}/cell) · ${used} / ${max} (Est. ${heuristic})`
         : `${filled}/${total} (${stepTok}/cell) · ${used} / ${max}`,
     fmtSessionAvgPeak: (avg, peak) => `Avg ${avg} · Peak ${peak}`,
+    fmtLiveAvgPeak: (avg, peak) => `Live ${avg} · Peak ${peak}`,
     fmtAvailableCompact: (avail, compact) => `Free ${avail} · ${compact}`,
     fmtValidSamples: (n) => `${n} reqs`,
     fmtLatestLast5: (lat, r5) => `Now ${lat} · 5x ${r5}`,
@@ -199,7 +209,8 @@ export const I18N = {
       `${total} 会话 · ${ws} 工作区 · ${active} 活跃`,
     fmtStepsSubsCell: (steps, subs) =>
       subs > 0 ? `${steps} 步 · +${subs}` : `${steps} 步`,
-    tkE2ETitle: '生成速率',
+    tkE2ETitle: '平均速率',
+    tkE2ETitleLive: '实时速率',
     tkTotalTitle: 'Token 消耗',
     tkMixTitle: 'Token 构成',
     tkInputMixDesc: '输入 · 缓存 / 新增',
@@ -262,10 +273,18 @@ export const I18N = {
     fmtGlobalToolbarSummary: (sessions, models) =>
       `${sessions} 会话 · ${models} 模型`,
     fmtSubagentsBadge: (n) => `+${n}`,
+    treeModeActiveFull: '活跃',
+    treeModeLive1m: '实时',
+    treeModeTooltip:
+      '切换统计口径：活跃（全量累计平均速率） / 实时（最近 3 轮实时速率，全部范围下仅统计近 1 分钟）',
     fmtScopeTreeOption: (subCount, reqs, tok) =>
       `全部 (主 + ${subCount}子) · ${reqs}次 · ${tok}`,
+    fmtScopeTreeActiveFullOption: (activeCount, reqs, tok) =>
+      `全部活跃 (${activeCount}活跃) · ${reqs}次 · ${tok}`,
     fmtScopeTreeLiveOption: (liveCount, activeCount, reqs, tok) =>
       `全部实时 (${liveCount}/${activeCount}活跃 · 1分) · ${reqs}次 · ${tok}`,
+    fmtValidSamples1m: (n) => `实时 · ${n} 次`,
+    fmtCacheHit1m: (pct) => `实时 · 缓 ${pct}`,
     fmtScopeRootOption: (title, reqs, tok) =>
       `主会话 · ${title} (${reqs}次 · ${tok})`,
     fmtScopeSubOption: (depth, title, shortId, reqs, tok) =>
@@ -284,6 +303,7 @@ export const I18N = {
         ? `${filled}/${total}格 (${stepTok}/格) · ${used} / ${max} (预估 ${heuristic})`
         : `${filled}/${total}格 (${stepTok}/格) · ${used} / ${max}`,
     fmtSessionAvgPeak: (avg, peak) => `均 ${avg} · 峰 ${peak}`,
+    fmtLiveAvgPeak: (avg, peak) => `实时 ${avg} · 峰 ${peak}`,
     fmtAvailableCompact: (avail, compact) => `余 ${avail} · ${compact}`,
     fmtValidSamples: (n) => `${n} 次`,
     fmtLatestLast5: (lat, r5) => `新 ${lat} · 近5 ${r5}`,

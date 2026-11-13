@@ -65,6 +65,10 @@ export function App() {
   const [selectedScope, setSelectedScope] = useState(
     urlParams.get('scope') || 'root'
   );
+  const [treeMode, setTreeMode] = useState(() => {
+    const raw = urlParams.get('treeMode') || savedPrefs.treeMode || 'active_full';
+    return raw === 'live_1m' ? 'live_1m' : 'active_full';
+  });
   const [pollIntervalMs, setPollIntervalMs] = useState(() => {
     if (urlParams.get('poll') !== null) return Number(urlParams.get('poll'));
     if (typeof savedPrefs.pollIntervalMs === 'number') {
@@ -84,9 +88,11 @@ export function App() {
   const inFlightRef = useRef(false);
   const selectedConvRef = useRef(selectedConversationId);
   const selectedScopeRef = useRef(selectedScope);
+  const treeModeRef = useRef(treeMode);
   const workspaceUrisRef = useRef(initialWorkspaceUris);
   selectedConvRef.current = selectedConversationId;
   selectedScopeRef.current = selectedScope;
+  treeModeRef.current = treeMode;
 
   const t = useMemo(() => createTranslator(lang), [lang]);
 
@@ -95,7 +101,12 @@ export function App() {
   }, [lang]);
 
   const refreshTelemetry = useCallback(
-    async (explicitConvId, explicitScope, explicitWorkspaceUris) => {
+    async (
+      explicitConvId,
+      explicitScope,
+      explicitWorkspaceUris,
+      explicitTreeMode
+    ) => {
       if (inFlightRef.current) return;
       inFlightRef.current = true;
       try {
@@ -111,10 +122,15 @@ export function App() {
           explicitWorkspaceUris !== undefined
             ? explicitWorkspaceUris
             : workspaceUrisRef.current;
+        const targetTreeMode =
+          explicitTreeMode !== undefined
+            ? explicitTreeMode
+            : treeModeRef.current;
 
         const queryParams = {
           conversationId: targetId,
           scope: targetScope,
+          treeMode: targetTreeMode,
           recentWindowSize: 5,
         };
         if (Array.isArray(targetWsUris) && targetWsUris.length > 0) {
@@ -277,6 +293,30 @@ export function App() {
     [refreshTelemetry]
   );
 
+  const handleChangeTreeMode = useCallback(
+    (nextMode) => {
+      const normalized = nextMode === 'live_1m' ? 'live_1m' : 'active_full';
+      setTreeMode(normalized);
+      treeModeRef.current = normalized;
+      try {
+        const prev = readSavedPrefs();
+        localStorage.setItem(
+          'agy_telemetry_studio_v1',
+          JSON.stringify({ ...prev, treeMode: normalized })
+        );
+      } catch {
+        // Ignore storage errors
+      }
+      refreshTelemetry(
+        selectedConvRef.current,
+        selectedScopeRef.current,
+        workspaceUrisRef.current,
+        normalized
+      );
+    },
+    [refreshTelemetry]
+  );
+
   const handleSelectPanel = useCallback(
     (nextPanel) => {
       setActivePanel(nextPanel);
@@ -339,6 +379,8 @@ export function App() {
         onSelectConversation={handleSelectConversation}
         selectedScope={selectedScope}
         onSelectScope={handleSelectScope}
+        treeMode={treeMode}
+        onChangeTreeMode={handleChangeTreeMode}
         pollIntervalMs={pollIntervalMs}
         onChangePollInterval={handleChangePollInterval}
         onToggleLang={handleToggleLang}
