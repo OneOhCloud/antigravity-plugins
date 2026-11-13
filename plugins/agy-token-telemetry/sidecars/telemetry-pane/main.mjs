@@ -12,6 +12,11 @@ import {
   collectConversationTelemetry,
   listAvailableConversations,
 } from './collector.mjs';
+import {
+  checkForPluginUpdate,
+  installPluginPackage,
+  readLocalPluginManifest,
+} from './updater.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_HTML_PATH = join(__dirname, 'dist', 'index.html');
@@ -172,6 +177,49 @@ export async function startTelemetrySidecar() {
 
   app.api('/api/conversations', handleConversationsRequest, 'POST');
   app.api('/api/conversations', handleConversationsRequest, 'GET');
+
+  const jsonErrorResponse = (status, err) =>
+    new Response(
+      JSON.stringify({
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+      {
+        contentType: 'application/json',
+        status,
+        headers: noCacheHeaders,
+      }
+    );
+
+  const handleVersionRequest = async () => readLocalPluginManifest();
+  app.api('/api/version', handleVersionRequest, 'GET');
+  app.api('/api/version', handleVersionRequest, 'POST');
+
+  const handleUpdateCheckRequest = async (data = {}) => {
+    try {
+      return await checkForPluginUpdate({
+        currentVersionOverride:
+          typeof data.mockCurrentVersion === 'string' && data.mockCurrentVersion.trim()
+            ? data.mockCurrentVersion.trim()
+            : undefined,
+      });
+    } catch (err) {
+      return jsonErrorResponse(502, err);
+    }
+  };
+  app.api('/api/update/check', handleUpdateCheckRequest, 'GET');
+  app.api('/api/update/check', handleUpdateCheckRequest, 'POST');
+
+  const handleUpdateInstallRequest = async (data = {}) => {
+    try {
+      return await installPluginPackage({
+        downloadUrl: typeof data.downloadUrl === 'string' ? data.downloadUrl : '',
+      });
+    } catch (err) {
+      return jsonErrorResponse(500, err);
+    }
+  };
+  app.api('/api/update/install', handleUpdateInstallRequest, 'POST');
 
   const server = await app.run();
   return { app, server };

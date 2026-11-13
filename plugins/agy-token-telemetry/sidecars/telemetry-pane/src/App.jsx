@@ -10,6 +10,7 @@ import { GlobalConfigStepsPane } from './components/GlobalConfigStepsPane.jsx';
 import { GlobalModelsPane } from './components/GlobalModelsPane.jsx';
 import { GlobalSessionsPane } from './components/GlobalSessionsPane.jsx';
 import { TopBar } from './components/TopBar.jsx';
+import { VersionFooter } from './components/VersionFooter.jsx';
 import { apiFetch, createTranslator, getI18nBridge } from './utils.js';
 
 function readSavedPrefs() {
@@ -361,11 +362,13 @@ export function App() {
   const activeTab = activePanel === 'conversation' ? convTab : globalTab;
   const openMenuParam = urlParams.get('openMenu') || '';
   const initialGranularityParam = urlParams.get('granularity') || 'day';
+  const mockCurrentVersionParam = urlParams.get('mockCurrentVersion') || '';
+  const autoCheckParam = urlParams.get('autoCheck') !== '0';
 
   return (
     <div
       id="appShell"
-      className="h-screen max-h-screen w-full max-w-[560px] mx-auto py-3 px-3.5 sm:py-3.5 sm:px-4 flex flex-col gap-5 overflow-hidden bg-white text-[#1d1d1f] font-sans text-[13px] leading-[1.45] antialiased"
+      className="h-screen max-h-screen w-full max-w-[560px] min-w-0 mx-auto py-3 px-3.5 sm:py-3.5 sm:px-4 flex flex-col gap-3.5 overflow-hidden bg-white text-[#1d1d1f] font-sans text-[13px] leading-[1.45] antialiased"
     >
       <TopBar
         t={t}
@@ -417,6 +420,12 @@ export function App() {
           />
         )}
       </main>
+
+      <VersionFooter
+        t={t}
+        mockCurrentVersion={mockCurrentVersionParam}
+        autoCheck={autoCheckParam}
+      />
     </div>
   );
 }

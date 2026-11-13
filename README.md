@@ -6,9 +6,9 @@ Official multi-plugin monorepo for Google Antigravity (`Antigravity 2.0` IDE and
 
 ---
 
-## Quick Installation (1 Step)
+## Quick Installation (Prebuilt Release Package, Recommended)
 
-Run the following single-line command in your terminal to install all plugins into `~/.gemini/config/plugins`:
+Run the following single-line command in your terminal to download and install the latest prebuilt plugin packages from GitHub Releases into `~/.gemini/config/plugins`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main/scripts/install.sh | bash
@@ -20,7 +20,15 @@ To install a specific plugin by name (for example `agy-token-telemetry`):
 curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main/scripts/install.sh | bash -s -- agy-token-telemetry
 ```
 
-### Alternative: Clone & Install (2 Steps)
+### Alternative: Install from Source
+
+You can force source installation via `--from-source` or clone the repository locally to build and install from source:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main/scripts/install.sh | bash -s -- --from-source
+```
+
+Or clone and install locally:
 
 ```bash
 git clone https://github.com/OneOhCloud/antigravity-plugins.git
@@ -33,7 +41,7 @@ git clone https://github.com/OneOhCloud/antigravity-plugins.git
 
 | Plugin Name | Category | Version | Languages | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.md) | Sidecar Aux Pane / Telemetry | `1.3.1` | `en`, `zh-CN` | Real-time session token usage, 3-month historical token KPIs, host system metrics (`CPU / Load / Memory / Disk`), `gen_metadata` model & endpoint mapping, live 1m `tok/s` velocity, and `contextWindow` wafer matrix. |
+| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.md) | Sidecar Aux Pane / Telemetry | `1.3.2` | `en`, `zh-CN` | Real-time session token usage, 3-month historical token KPIs, host system metrics (`CPU / Load / Memory / Disk`), `gen_metadata` model & endpoint mapping, live 1m `tok/s` velocity, and `contextWindow` wafer matrix. |
 
 ---
 

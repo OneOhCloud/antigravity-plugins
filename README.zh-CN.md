@@ -6,9 +6,9 @@
 
 ---
 
-## 极速安装（仅需 1 步）
+## 极速安装（默认下载预打包发布包，推荐）
 
-在终端执行以下单行命令，即可将插件自动安装至 `~/.gemini/config/plugins`：
+在终端执行以下单行命令，默认从 GitHub Releases 下载最新预打包插件包并安装至 `~/.gemini/config/plugins`：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main/scripts/install.sh | bash
@@ -20,7 +20,15 @@ curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main
 curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main/scripts/install.sh | bash -s -- agy-token-telemetry
 ```
 
-### 备选方式：克隆仓库安装（2 步）
+### 备选方式：从源码安装
+
+可通过 `--from-source` 参数强制从源码安装，或克隆仓库后在本地构建安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main/scripts/install.sh | bash -s -- --from-source
+```
+
+或克隆仓库本地构建安装：
 
 ```bash
 git clone https://github.com/OneOhCloud/antigravity-plugins.git
@@ -33,7 +41,7 @@ git clone https://github.com/OneOhCloud/antigravity-plugins.git
 
 | 插件名称 | 类型 | 版本 | 支持语言 | 功能简介 |
 | :--- | :--- | :--- | :--- | :--- |
-| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.zh-CN.md) | Sidecar 侧边栏面板 / 遥测 | `1.3.1` | `en`, `zh-CN` | 实时统计会话 Token 消耗、全局近 3 个月历史用量趋势、本机 `CPU / 负载 / 内存 / 磁盘` 系统指标、`gen_metadata` 模型与端点映射、活跃实时 `tok/s` 速率及上下文窗口晶圆矩阵。 |
+| [`agy-token-telemetry`](./plugins/agy-token-telemetry/README.zh-CN.md) | Sidecar 侧边栏面板 / 遥测 | `1.3.2` | `en`, `zh-CN` | 实时统计会话 Token 消耗、全局近 3 个月历史用量趋势、本机 `CPU / 负载 / 内存 / 磁盘` 系统指标、`gen_metadata` 模型与端点映射、活跃实时 `tok/s` 速率及上下文窗口晶圆矩阵。 |
 
 ---
 
