@@ -116,26 +116,48 @@ install_from_release_assets() {
     api_url="https://api.github.com/repos/${REPO_SLUG}/releases/tags/${RELEASE_TAG}"
   fi
 
+  local matched_assets=""
   local release_json
-  if ! release_json="$(curl -fsSL -H "Accept: application/vnd.github+json" -H "User-Agent: agy-plugins-installer" "${api_url}" 2>/dev/null)"; then
-    return 1
+  if release_json="$(curl -fsSL -H "Accept: application/vnd.github+json" -H "User-Agent: agy-plugins-installer" "${api_url}" 2>/dev/null)"; then
+    matched_assets="$(printf "%s" "${release_json}" | node -e "
+      const fs = require('fs');
+      const data = JSON.parse(fs.readFileSync(0, 'utf8'));
+      const requested = process.argv.slice(1);
+      const assets = Array.isArray(data.assets) ? data.assets : [];
+      const tgz = assets.filter((a) => typeof a.name === 'string' && a.name.endsWith('.tar.gz'));
+      for (const asset of tgz) {
+        const m = asset.name.match(/^(.+?)-v?\\d+\\.\\d+\\.\\d+.*\\.tar\\.gz$/);
+        const pluginName = m ? m[1] : asset.name.replace(/\\.tar\\.gz$/, '');
+        if (requested.length === 0 || requested.includes(pluginName)) {
+          console.log(pluginName + '\t' + asset.name + '\t' + asset.browser_download_url);
+        }
+      }
+    " ${requested_plugins[@]+"${requested_plugins[@]}"})"
   fi
 
-  local matched_assets
-  matched_assets="$(printf "%s" "${release_json}" | node -e "
-    const fs = require('fs');
-    const data = JSON.parse(fs.readFileSync(0, 'utf8'));
-    const requested = process.argv.slice(1);
-    const assets = Array.isArray(data.assets) ? data.assets : [];
-    const tgz = assets.filter((a) => typeof a.name === 'string' && a.name.endsWith('.tar.gz'));
-    for (const asset of tgz) {
-      const m = asset.name.match(/^(.+?)-v?\\d+\\.\\d+\\.\\d+.*\\.tar\\.gz$/);
-      const pluginName = m ? m[1] : asset.name.replace(/\\.tar\\.gz$/, '');
-      if (requested.length === 0 || requested.includes(pluginName)) {
-        console.log(pluginName + '\t' + asset.name + '\t' + asset.browser_download_url);
-      }
-    }
-  " ${requested_plugins[@]+"${requested_plugins[@]}"})"
+  if [[ -z "${matched_assets}" ]]; then
+    local resolved_tag="${RELEASE_TAG}"
+    if [[ "${resolved_tag}" == "latest" ]]; then
+      local effective_url
+      effective_url="$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/${REPO_SLUG}/releases/latest" 2>/dev/null || true)"
+      resolved_tag="${effective_url##*/}"
+    fi
+    if [[ -n "${resolved_tag}" && "${resolved_tag}" != "latest" ]]; then
+      local fallback_targets=()
+      if [[ ${#requested_plugins[@]} -gt 0 ]]; then
+        fallback_targets=("${requested_plugins[@]}")
+      else
+        fallback_targets=("agy-token-telemetry")
+      fi
+      for plugin_name in "${fallback_targets[@]}"; do
+        local asset_name="${plugin_name}-${resolved_tag}.tar.gz"
+        local download_url="https://github.com/${REPO_SLUG}/releases/download/${resolved_tag}/${asset_name}"
+        if curl -fsSLI "${download_url}" >/dev/null 2>&1; then
+          matched_assets+="${plugin_name}"$'\t'"${asset_name}"$'\t'"${download_url}"$'\n'
+        fi
+      done
+    fi
+  fi
 
   if [[ -z "${matched_assets}" ]]; then
     return 1

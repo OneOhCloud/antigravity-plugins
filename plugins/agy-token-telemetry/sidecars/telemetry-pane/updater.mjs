@@ -122,8 +122,68 @@ async function fetchJsonWithTimeout(url, timeoutMs = CHECK_TIMEOUT_MS) {
   return await response.json();
 }
 
+async function fetchLatestReleaseViaWebRedirect(repoSlug, pluginName, timeoutMs) {
+  const webUrl = `https://github.com/${repoSlug}/releases/latest`;
+  const response = await fetch(webUrl, {
+    method: 'GET',
+    redirect: 'follow',
+    headers: { 'User-Agent': 'agy-token-telemetry-updater' },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const finalUrl = response.url || '';
+  const tagMatch = finalUrl.match(/\/releases\/tag\/([^/?#]+)$/);
+  if (!tagMatch) {
+    throw new Error(`Unable to resolve latest release tag from ${finalUrl || webUrl}`);
+  }
+  const tagName = decodeURIComponent(tagMatch[1]);
+  const version = normalizeVersionString(tagName);
+  const candidateNames = [`${pluginName}-${tagName}.tar.gz`, `${pluginName}-v${version}.tar.gz`];
+  let asset = null;
+
+  for (const name of [...new Set(candidateNames)]) {
+    const downloadUrl = `https://github.com/${repoSlug}/releases/download/${tagName}/${name}`;
+    try {
+      const headRes = await fetch(downloadUrl, {
+        method: 'HEAD',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (headRes.ok) {
+        asset = {
+          name,
+          version,
+          downloadUrl,
+          size: Number(headRes.headers.get('content-length') || 0),
+          contentType: headRes.headers.get('content-type') || 'application/gzip',
+        };
+        break;
+      }
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  return {
+    tag_name: tagName,
+    name: tagName,
+    html_url: finalUrl,
+    published_at: '',
+    assets: asset
+      ? [
+          {
+            name: asset.name,
+            size: asset.size,
+            content_type: asset.contentType,
+            browser_download_url: asset.downloadUrl,
+          },
+        ]
+      : [],
+  };
+}
+
 /**
- * Queries GitHub Releases API for the latest release and matching plugin archive.
+ * Queries GitHub Releases API for the latest release and matching plugin archive,
+ * with a web-redirect fallback when unauthenticated API rate limits apply.
  */
 export async function checkForPluginUpdate(options = {}) {
   const pluginRootDir = options.pluginRootDir || DEFAULT_PLUGIN_ROOT;
@@ -133,10 +193,19 @@ export async function checkForPluginUpdate(options = {}) {
     ? normalizeVersionString(options.currentVersionOverride)
     : manifest.version;
 
+  const timeoutMs = options.timeoutMs || CHECK_TIMEOUT_MS;
   const latestUrl =
     options.releaseApiUrl ||
     `https://api.github.com/repos/${repoSlug}/releases/latest`;
-  let release = await fetchJsonWithTimeout(latestUrl, options.timeoutMs || CHECK_TIMEOUT_MS);
+  let release;
+  try {
+    release = await fetchJsonWithTimeout(latestUrl, timeoutMs);
+  } catch (err) {
+    if (options.releaseApiUrl) {
+      throw err;
+    }
+    release = await fetchLatestReleaseViaWebRedirect(repoSlug, manifest.name, timeoutMs);
+  }
   let asset = selectPluginAsset(release?.assets, manifest.name);
 
   if (!asset && !options.releaseApiUrl) {
