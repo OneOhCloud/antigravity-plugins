@@ -95,6 +95,23 @@ function toTruthySqliteBool(val) {
   return val === 1 || val === true || val === '1' || val === 'true';
 }
 
+export function parseTimestampMs(rawTs) {
+  if (typeof rawTs === 'number') {
+    return Number.isFinite(rawTs) ? rawTs : 0;
+  }
+  const str = String(rawTs || '').trim();
+  if (!str) return 0;
+  const parsed = Date.parse(str);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function compareTimestampAsc(a, b) {
+  const aMs = parseTimestampMs(a);
+  const bMs = parseTimestampMs(b);
+  if (aMs !== bMs) return aMs - bMs;
+  return String(a || '').localeCompare(String(b || ''));
+}
+
 export function normalizeWorkspaceUri(rawUri) {
   if (!rawUri || typeof rawUri !== 'string') return '';
   let trimmed = rawUri.trim();
@@ -445,7 +462,7 @@ function assembleRootSessionTrees(byId) {
 
   for (const siblings of childrenByParentId.values()) {
     siblings.sort((a, b) =>
-      String(a.lastModifiedTime).localeCompare(String(b.lastModifiedTime))
+      compareTimestampAsc(a.lastModifiedTime, b.lastModifiedTime)
     );
   }
 
@@ -479,7 +496,8 @@ function assembleRootSessionTrees(byId) {
           maxNestingDepth = effectiveDepth;
         }
         if (
-          String(normalizedChild.lastModifiedTime).localeCompare(
+          compareTimestampAsc(
+            normalizedChild.lastModifiedTime,
             treeLastModifiedTime
           ) > 0
         ) {
@@ -544,9 +562,7 @@ export function listAvailableConversations({
 
   return enrichedRoots
     .sort((a, b) =>
-      String(b.treeLastModifiedTime).localeCompare(
-        String(a.treeLastModifiedTime)
-      )
+      compareTimestampAsc(b.treeLastModifiedTime, a.treeLastModifiedTime)
     )
     .slice(0, limit);
 }
@@ -651,8 +667,9 @@ export function resolveWorkspaceScopedConversations(
       const aActive = a.lifecycleStatus === 'active' ? 1 : 0;
       const bActive = b.lifecycleStatus === 'active' ? 1 : 0;
       if (aActive !== bActive) return bActive - aActive;
-      return String(b.treeLastModifiedTime || b.lastModifiedTime).localeCompare(
-        String(a.treeLastModifiedTime || a.lastModifiedTime)
+      return compareTimestampAsc(
+        b.treeLastModifiedTime || b.lastModifiedTime,
+        a.treeLastModifiedTime || a.lastModifiedTime
       );
     });
   }

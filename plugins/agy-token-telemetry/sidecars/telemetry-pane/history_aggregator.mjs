@@ -16,6 +16,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import { isValidChatStepRecord } from './proto_decoder.mjs';
 import {
   APP_SURFACES,
   getGeminiRootDir,
@@ -23,10 +24,11 @@ import {
   readJsonFileSafe,
   readStepTimestampsFromSqlite,
   readStepTimestampsFromTranscript,
+  resolveStepTimestampInfo,
 } from './sqlite_rpc.mjs';
 
 const LEDGER_VERSION = 1;
-const HOT_CACHE_TTL_MS = 5000;
+const HOT_CACHE_TTL_MS = 2000;
 const MAX_RETENTION_DAYS = 92;
 const EN_MONTHS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -145,41 +147,25 @@ function buildConversationDayBuckets(dbPath, geminiRoot, convId, fallbackMtimeMs
   const buckets = {};
 
   for (const step of genRecords) {
-    if (!step.hasChatModel) continue;
-    if (
-      step.responseModel === 'unspecified' &&
-      step.inputTokens === 0 &&
-      step.cacheReadTokens === 0 &&
-      step.outputTokens === 0
-    ) {
-      continue;
-    }
+    if (!isValidChatStepRecord(step)) continue;
 
-    let stepTsMs =
-      sqliteTsMap.get(step.firstStepIndex)?.timestampMs ||
-      sqliteTsMap.get(step.lastStepIndex)?.timestampMs ||
-      0;
-
-    if (!stepTsMs && Array.isArray(step.stepIndices)) {
-      for (const idx of step.stepIndices) {
-        const hit = sqliteTsMap.get(idx)?.timestampMs;
-        if (hit) {
-          stepTsMs = hit;
-          break;
-        }
-      }
-    }
+    let { timestampMs: stepTsMs } = resolveStepTimestampInfo(
+      step,
+      sqliteTsMap,
+      transcriptTsMap,
+      0
+    );
 
     if (!stepTsMs) {
       if (!transcriptTsMap) {
         transcriptTsMap = readStepTimestampsFromTranscript(geminiRoot, convId);
       }
-      const iso =
-        transcriptTsMap.get(step.firstStepIndex) ||
-        transcriptTsMap.get(step.lastStepIndex) ||
-        '';
-      const parsed = iso ? Date.parse(iso) : 0;
-      stepTsMs = Number.isFinite(parsed) && parsed > 0 ? parsed : fallbackMtimeMs;
+      ({ timestampMs: stepTsMs } = resolveStepTimestampInfo(
+        step,
+        sqliteTsMap,
+        transcriptTsMap,
+        fallbackMtimeMs
+      ));
     }
 
     const dayKey = formatLocalDateKey(stepTsMs);
@@ -293,13 +279,20 @@ export function collectGlobalTokenHistory({
 
       const walPath = `${dbPath}-wal`;
       let walMtime = 0;
+      let walSize = 0;
       try {
-        if (existsSync(walPath)) walMtime = statSync(walPath).mtimeMs;
+        if (existsSync(walPath)) {
+          const walStat = statSync(walPath);
+          walMtime = walStat.mtimeMs;
+          walSize = walStat.size;
+        }
       } catch {
         walMtime = 0;
+        walSize = 0;
       }
 
-      const sig = `${Math.round(dbStat.mtimeMs)}:${dbStat.size}:${Math.round(walMtime)}`;
+      const sig = `${Math.round(dbStat.mtimeMs)}:${dbStat.size}:${Math.round(walMtime)}:${walSize}`;
+      const fallbackMtimeMs = Math.max(dbStat.mtimeMs, walMtime);
       const entryKey = `${surface.id}:${convId}`;
       const existing = ledger.conversations[entryKey];
 
@@ -308,7 +301,7 @@ export function collectGlobalTokenHistory({
           dbPath,
           geminiRoot,
           convId,
-          dbStat.mtimeMs
+          fallbackMtimeMs
         );
         const pruned = {};
         for (const [dKey, b] of Object.entries(rawBuckets)) {
@@ -430,6 +423,8 @@ export function collectGlobalTokenHistory({
     const prevTotals = days.length > 0 ? days[days.length - 1].totalTokens : 0;
     days.push({
       key,
+      startDateKey: key,
+      endDateKey: key,
       zhLabel: `${pad2(m)}月${pad2(dom)}日`,
       zhShort: `${pad2(dom)}日`,
       enLabel: `${EN_MONTHS[m - 1]} ${dom}`,
@@ -463,6 +458,8 @@ export function collectGlobalTokenHistory({
 
     weeks.push({
       key: `${mon.getFullYear()}-W${pad2(wkNum)}`,
+      startDateKey: formatLocalDateKey(mon.getTime()),
+      endDateKey: formatLocalDateKey(sun.getTime()),
       zhLabel: isCurrentWeek
         ? `本周 (${sm}.${sd}—${em}.${ed})`
         : `${wkNum}周 (${sm}.${sd}—${em}.${ed})`,
@@ -499,6 +496,8 @@ export function collectGlobalTokenHistory({
 
     months.push({
       key: `${yr}-${pad2(mo)}`,
+      startDateKey: formatLocalDateKey(mStart.getTime()),
+      endDateKey: formatLocalDateKey(mEnd.getTime()),
       zhLabel: `${yr}年${pad2(mo)}月`,
       zhShort: `${mo}月`,
       enLabel: `${EN_MONTHS[mo - 1]} ${yr}`,
@@ -552,4 +551,77 @@ export function collectGlobalTokenHistory({
     payload,
   });
   return payload;
+}
+
+/**
+ * Attaches aggregated 92-day and per-day (`days[YYYY-MM-DD]`) token/call
+ * totals from the persistent ledger onto each root conversation tree so Global
+ * Session History rows reconcile directly with the daily/weekly/monthly slices.
+ */
+export function attachHistoryTotalsToConversations(
+  rootConversations,
+  { homeDirPath = homedir(), nowMs = Date.now() } = {}
+) {
+  if (!Array.isArray(rootConversations) || rootConversations.length === 0) {
+    return rootConversations;
+  }
+  const geminiRoot = getGeminiRootDir(homeDirPath);
+  const ledger = loadLedgerForRoot(geminiRoot);
+  const todayKey = formatLocalDateKey(nowMs);
+
+  return rootConversations.map((rootConv) => {
+    const nodes = [rootConv, ...(rootConv.subagents || [])];
+    const days = {};
+    let totalTokens = 0;
+    let outputTokens = 0;
+    let requestCount = 0;
+
+    for (const node of nodes) {
+      const surfaceId = node.surfaceId || 'antigravity';
+      const entry =
+        ledger.conversations[`${surfaceId}:${node.conversationId}`] ||
+        ledger.conversations[`antigravity:${node.conversationId}`] ||
+        ledger.conversations[`antigravity-cli:${node.conversationId}`];
+      const dayMap = entry?.days;
+      if (!dayMap) continue;
+      for (const [dKey, b] of Object.entries(dayMap)) {
+        if (dKey > todayKey) continue;
+        const tok =
+          Number(b.inputTokens || 0) +
+          Number(b.cacheReadTokens || 0) +
+          Number(b.outputTokens || 0);
+        const out = Number(b.outputTokens || 0);
+        const reqs = Number(b.requestCount || 0);
+        if (tok === 0 && reqs === 0) continue;
+        totalTokens += tok;
+        outputTokens += out;
+        requestCount += reqs;
+        if (!days[dKey]) {
+          days[dKey] = { totalTokens: 0, outputTokens: 0, requestCount: 0 };
+        }
+        days[dKey].totalTokens += tok;
+        days[dKey].outputTokens += out;
+        days[dKey].requestCount += reqs;
+      }
+    }
+
+    const todayBucket = days[todayKey] || {
+      totalTokens: 0,
+      outputTokens: 0,
+      requestCount: 0,
+    };
+
+    return {
+      ...rootConv,
+      historyTotals: {
+        totalTokens,
+        outputTokens,
+        requestCount,
+        todayTokens: todayBucket.totalTokens,
+        todayOutputTokens: todayBucket.outputTokens,
+        todayRequestCount: todayBucket.requestCount,
+        days,
+      },
+    };
+  });
 }

@@ -11,13 +11,19 @@ import {
 } from '../utils.js';
 
 export function GlobalConfigStepsPane({ data, t }) {
-  const { fmtInt, fmtCompact, fmtRate, fmtSec } = getI18nBridge();
+  const { fmtInt, fmtRate, fmtSec } = getI18nBridge();
+  const fmtCompact = t('fmtCompact');
 
   const env = data?.runtimeEnv || {};
   const ac = env.autoCompactOverride || {};
   const cwCfg = env.contextWindowConfig || {};
   const cwState = data?.contextWindowState || {};
-  const maxCtx = cwState.maxContextTokens || 0;
+  const maxCtx =
+    cwState.singleAgentMaxContextTokens || cwState.maxContextTokens || 0;
+  const maxOut =
+    cwState.singleAgentPlannerMaxOutputTokens ||
+    cwState.plannerMaxOutputTokens ||
+    0;
   const acVal = ac.value ?? ac.envValue ?? null;
 
   const steps = (Array.isArray(data?.stepRecords) ? data.stepRecords : [])
@@ -80,9 +86,7 @@ export function GlobalConfigStepsPane({ data, t }) {
             id="stPlannerMaxOut"
           >
             {t('fmtMaxStepOut')(
-              cwState.plannerMaxOutputTokens > 0
-                ? fmtCompact(cwState.plannerMaxOutputTokens)
-                : '-',
+              maxOut > 0 ? fmtCompact(maxOut) : '-',
               cwCfg.configuredValue ? t('overridden') : t('notOverridden')
             )}
           </div>
@@ -98,7 +102,7 @@ export function GlobalConfigStepsPane({ data, t }) {
             className="font-mono text-[10.5px] text-[#86868b] tabular-nums truncate"
             id="stStepsCount"
           >
-            {t('fmtStepsCount')(steps.length)}
+            {t('fmtStepsCount')(fmtInt(steps.length))}
           </span>
         </div>
         <div className="flex-1 min-h-0 max-h-full overflow-y-auto overflow-x-hidden">

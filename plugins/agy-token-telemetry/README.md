@@ -16,11 +16,11 @@ curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main
 
 ## Core Capabilities
 
-1. **Global 3-Month Historical Token Usage KPIs & Sequence Bar Explorer**:
-   - Maintains an incremental mtime-keyed daily ledger across all App and CLI conversations (`92` rolling days + 3 calendar months, surviving old `.db` cleanup).
-   - Displays **MTD** (primary left hero) alongside **WTD** and **Today** (right secondary columns) with fair period-over-period trend comparisons, plus an interactive **Day / Week / Month** sequence bar chart with window paging to inspect `Total / Input / Output / Calls` for any specific day, week, or month.
-2. **Real-Time Live Filtering in `Live (All)` (`tree`) Scope**:
-   - Defaults to **Main Session (`root`)** scope; when switched to **Live (`tree`)** scope, strictly excludes `completed` and `inactive` sub-agents and filters out steps older than **1 minute (`60s`)** so velocity and context window metrics reflect true live activity.
+1. **Global 3-Month Historical Token Usage KPIs & Per-Session Slice Reconciliation**:
+   - Maintains an incremental mtime/WAL-keyed daily ledger across all App and CLI conversations (`92` rolling days + 3 calendar months, surviving old `.db` cleanup).
+   - Displays **MTD** (primary left hero) alongside **WTD** and **Today** (right secondary columns) with fair period-over-period trend comparisons, an interactive **Day / Week / Month** sequence bar chart, and per-session token/call attribution in the Sessions table that reconciles 1:1 with the selected slice.
+2. **Full Session Tree (`tree_all`) Reconciliation & Real-Time Active Filtering (`tree`)**:
+   - Provides **Main (`root`)**, **All (`Main + Sub`, `tree_all`)** for full cumulative session reconciliation (active + completed + inactive sub-agents), and **All Active / Live (`tree`)** for active agents and 1-minute live filtering.
 3. **Host System Metrics Cluster in Session Overview**:
    - Samples real-time **CPU** utilization (`os.cpus()` tick delta), **Load Average** (`1m` / `5m`), **Physical Memory** (macOS Activity Monitor `vm_stat` formula / Linux `MemAvailable`), and **Disk** free capacity (`fs.statfsSync`) in a compact `2x2` top-right cluster with 1:1 progress bars.
 4. **API-Calibrated Context Window Wafer Matrix & Immediate Manual `/compact` Refresh**:

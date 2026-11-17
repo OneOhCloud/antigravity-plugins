@@ -20,8 +20,10 @@ export function GlobalHistorySection({
   t,
   lang,
   initialGranularity = 'day',
+  onActiveSliceChange,
 }) {
-  const { fmtInt, fmtCompact, fmtPct, fmtSignedTrend } = getI18nBridge();
+  const { fmtInt, fmtPct, fmtSignedTrend } = getI18nBridge();
+  const fmtCompact = t('fmtCompact');
 
   const [granularity, setGranularity] = useState(() =>
     normalizeGranularity(initialGranularity)
@@ -66,6 +68,12 @@ export function GlobalHistorySection({
     }
     return visibleSlices[visibleSlices.length - 1];
   }, [visibleSlices, selectedKey]);
+
+  useEffect(() => {
+    if (onActiveSliceChange) {
+      onActiveSliceChange(activeSlice);
+    }
+  }, [activeSlice, onActiveSliceChange]);
 
   const maxVisibleTotal = useMemo(() => {
     let peak = 1;

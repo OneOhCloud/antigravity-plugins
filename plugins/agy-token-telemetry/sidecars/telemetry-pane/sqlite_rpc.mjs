@@ -441,3 +441,64 @@ export function findConversationDbOnDisk(geminiRoot, conversationId) {
   }
   return null;
 }
+
+/**
+ * Canonical step timestamp resolver shared across live telemetry and
+ * historical bucket aggregation. Prefers SQLite completion/creation time on
+ * `lastStepIndex`/`firstStepIndex`, then transcript timestamps, then optional
+ * file mtime fallback.
+ */
+export function resolveStepTimestampInfo(
+  step,
+  sqliteTsByStep,
+  transcriptTsByStep,
+  fallbackMtimeMs = 0
+) {
+  const sqliteLast = sqliteTsByStep?.get(step?.lastStepIndex);
+  const sqliteFirst = sqliteTsByStep?.get(step?.firstStepIndex);
+  let timestampIso = sqliteLast?.timestampIso || sqliteFirst?.timestampIso || '';
+  let timestampMs = sqliteLast?.timestampMs || sqliteFirst?.timestampMs || 0;
+
+  const indices = Array.isArray(step?.stepIndices) ? step.stepIndices : [];
+  if (!timestampMs && sqliteTsByStep && indices.length > 0) {
+    for (let i = indices.length - 1; i >= 0; i -= 1) {
+      const hit = sqliteTsByStep.get(indices[i]);
+      if (hit?.timestampMs > 0) {
+        timestampIso = hit.timestampIso;
+        timestampMs = hit.timestampMs;
+        break;
+      }
+    }
+  }
+
+  if (!timestampMs && transcriptTsByStep) {
+    let iso =
+      transcriptTsByStep.get(step?.lastStepIndex) ||
+      transcriptTsByStep.get(step?.firstStepIndex) ||
+      '';
+    if (!iso && indices.length > 0) {
+      for (let i = indices.length - 1; i >= 0; i -= 1) {
+        const hitIso = transcriptTsByStep.get(indices[i]);
+        if (hitIso) {
+          iso = hitIso;
+          break;
+        }
+      }
+    }
+    const parsed = iso ? Date.parse(iso) : 0;
+    if (Number.isFinite(parsed) && parsed > 0) {
+      timestampIso = iso;
+      timestampMs = parsed;
+    }
+  }
+
+  if ((!Number.isFinite(timestampMs) || timestampMs <= 0) && fallbackMtimeMs > 0) {
+    timestampMs = fallbackMtimeMs;
+    timestampIso = new Date(fallbackMtimeMs).toISOString();
+  }
+
+  return {
+    timestampIso,
+    timestampMs: Number.isFinite(timestampMs) && timestampMs > 0 ? timestampMs : 0,
+  };
+}

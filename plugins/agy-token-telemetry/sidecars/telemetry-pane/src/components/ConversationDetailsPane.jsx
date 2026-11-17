@@ -7,7 +7,8 @@ import React from 'react';
 import { formatStepSpan, getI18nBridge } from '../utils.js';
 
 export function ConversationDetailsPane({ data, t }) {
-  const { fmtInt, fmtCompact, fmtRate, fmtSec } = getI18nBridge();
+  const { fmtInt, fmtRate, fmtSec } = getI18nBridge();
+  const fmtCompact = t('fmtCompact');
   const totals = data?.tokenTotals || {};
 
   const promptTotal = Math.max(1, totals.totalPromptTokens || 0);
@@ -52,7 +53,7 @@ export function ConversationDetailsPane({ data, t }) {
             id="tkTotalRequests"
           >
             {t('fmtReqsRetries')(
-              totals.totalRequests || 0,
+              fmtInt(totals.totalRequests || 0),
               totals.totalRetryCount || 0
             )}
           </span>
@@ -114,7 +115,7 @@ export function ConversationDetailsPane({ data, t }) {
             className="font-mono text-[11px] text-[#86868b] tabular-nums truncate"
             id="tkValidListMeta"
           >
-            {t('fmtValidReqsCount')(validStepsRev.length)}
+            {t('fmtValidReqsCount')(fmtInt(validStepsRev.length))}
           </span>
         </div>
         <div className="flex-1 min-h-0 max-h-full overflow-y-auto overflow-x-hidden">

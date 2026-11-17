@@ -36,8 +36,11 @@ export const I18N = {
     gsTableTitle: 'Sessions',
     thSessionTitle: 'Session',
     thWorkspace: 'Workspace',
-    thStepsSubagents: 'Steps / Time',
+    thStepsSubagents: 'Usage / Time',
     thLastActive: 'Active',
+    fmtSessionCallsUsage: (tok, calls) => `${tok} · ${calls}`,
+    fmtSessionTotalMeta: (tot, ts) => `All ${tot} · ${ts}`,
+    fmtSessionTotalPrefix: (tot) => `All ${tot}`,
     fmtActiveSubagentsSummary: (active, subs) =>
       `${active} active · +${subs} sub`,
     fmtCurrentWorkspaceSessions: (ws, count) => `${ws} (${count})`,
@@ -112,13 +115,21 @@ export const I18N = {
     treeModeActiveFull: 'Active',
     treeModeLive1m: 'Live',
     treeModeTooltip:
-      'Switch KPI mode: Active (full cumulative average rate) / Live (last 3 turns live rate; 1m window for All scope)',
+      'Switch KPI mode: Active (cumulative avg rate) / Live (last 3 turns live rate; 1m window under All Active scope)',
     fmtScopeTreeOption: (subCount, reqs, tok) =>
       `All (Main + ${subCount} Sub) · ${reqs} · ${tok}`,
     fmtScopeTreeActiveFullOption: (activeCount, reqs, tok) =>
       `All Active (${activeCount} active) · ${reqs} · ${tok}`,
     fmtScopeTreeLiveOption: (liveCount, activeCount, reqs, tok) =>
       `Live (${liveCount}/${activeCount} active · 1m) · ${reqs} · ${tok}`,
+    fmtScopeTreeLabel: (subCount) => `All (Main + ${subCount} Sub)`,
+    fmtScopeTreeActiveLabel: (activeCount) => `All Active (${activeCount} active)`,
+    fmtScopeTreeLiveLabel: (liveCount, activeCount) =>
+      `Live (${liveCount}/${activeCount} active · 1m)`,
+    fmtScopeRootLabel: (title) => `Main · ${title}`,
+    fmtScopeSubLabel: (depth, title, shortId) =>
+      `[L${depth}] ${title} (${shortId})`,
+    fmtScopeStatsMeta: (reqs, tok) => `${reqs} · ${tok}`,
     fmtValidSamples1m: (n) => `Live · ${n}`,
     fmtCacheHit1m: (pct) => `Live · Cache ${pct}`,
     fmtScopeRootOption: (title, reqs, tok) =>
@@ -176,6 +187,7 @@ export const I18N = {
     versionInstalled: 'Installed',
     versionCheckFailed: 'Retry',
     versionInstallFailed: 'Retry',
+    fmtCompact: (n) => fmtCompact(n, 'en'),
   },
   'zh-CN': {
     panelConversation: '对话',
@@ -209,8 +221,11 @@ export const I18N = {
     gsTableTitle: '会话记录',
     thSessionTitle: '会话',
     thWorkspace: '工作区',
-    thStepsSubagents: '步数 / 时间',
+    thStepsSubagents: '用量 / 时间',
     thLastActive: '时间',
+    fmtSessionCallsUsage: (tok, calls) => `${tok} · ${calls}次`,
+    fmtSessionTotalMeta: (tot, ts) => `总${tot} · ${ts}`,
+    fmtSessionTotalPrefix: (tot) => `总${tot}`,
     fmtActiveSubagentsSummary: (active, subs) =>
       `${active} 活跃 · +${subs} 子代理`,
     fmtCurrentWorkspaceSessions: (ws, count) => `${ws} (${count})`,
@@ -285,13 +300,21 @@ export const I18N = {
     treeModeActiveFull: '活跃',
     treeModeLive1m: '实时',
     treeModeTooltip:
-      '切换统计口径：活跃（全量累计平均速率） / 实时（最近 3 轮实时速率，全部范围下仅统计近 1 分钟）',
+      '切换统计口径：活跃（全量累计平均速率） / 实时（最近 3 轮实时速率；全部活跃范围下仅统计近 1 分钟）',
     fmtScopeTreeOption: (subCount, reqs, tok) =>
       `全部 (主 + ${subCount}子) · ${reqs}次 · ${tok}`,
     fmtScopeTreeActiveFullOption: (activeCount, reqs, tok) =>
       `全部活跃 (${activeCount}活跃) · ${reqs}次 · ${tok}`,
     fmtScopeTreeLiveOption: (liveCount, activeCount, reqs, tok) =>
       `全部实时 (${liveCount}/${activeCount}活跃 · 1分) · ${reqs}次 · ${tok}`,
+    fmtScopeTreeLabel: (subCount) => `全部 (主 + ${subCount}子)`,
+    fmtScopeTreeActiveLabel: (activeCount) => `全部活跃 (${activeCount}活跃)`,
+    fmtScopeTreeLiveLabel: (liveCount, activeCount) =>
+      `全部实时 (${liveCount}/${activeCount}活跃 · 1分)`,
+    fmtScopeRootLabel: (title) => `主会话 · ${title}`,
+    fmtScopeSubLabel: (depth, title, shortId) =>
+      `[L${depth}] ${title} (${shortId})`,
+    fmtScopeStatsMeta: (reqs, tok) => `${reqs}次 · ${tok}`,
     fmtValidSamples1m: (n) => `实时 · ${n} 次`,
     fmtCacheHit1m: (pct) => `实时 · 缓 ${pct}`,
     fmtScopeRootOption: (title, reqs, tok) =>
@@ -349,6 +372,7 @@ export const I18N = {
     versionInstalled: '已安装',
     versionCheckFailed: '重试',
     versionInstallFailed: '重试',
+    fmtCompact: (n) => fmtCompact(n, 'zh-CN'),
   },
 };
 
@@ -387,9 +411,16 @@ export const fmtInt = (n) => {
   return Number.isFinite(val) ? Math.round(val).toLocaleString('en-US') : '0';
 };
 
-export const fmtCompact = (n) => {
+export const fmtCompact = (n, lang = 'en') => {
   const val = Number(n);
   if (!Number.isFinite(val)) return '0';
+  if (lang === 'zh-CN') {
+    if (val >= 1e12) return (val / 1e12).toFixed(2) + '万亿';
+    if (val >= 1e8) return (val / 1e8).toFixed(2) + '亿';
+    if (val >= 1e7) return Math.round(val / 1e4) + '万';
+    if (val >= 1e4) return (val / 1e4).toFixed(1) + '万';
+    return Math.round(val).toLocaleString('en-US');
+  }
   if (val >= 1e9) return (val / 1e9).toFixed(2) + 'B';
   if (val >= 1e6) return (val / 1e6).toFixed(2) + 'M';
   if (val >= 1e3) return (val / 1e3).toFixed(1) + 'k';

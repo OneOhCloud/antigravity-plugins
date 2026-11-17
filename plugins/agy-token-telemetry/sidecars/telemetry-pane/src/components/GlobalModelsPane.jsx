@@ -7,7 +7,8 @@ import React from 'react';
 import { getI18nBridge } from '../utils.js';
 
 export function GlobalModelsPane({ data, t }) {
-  const { fmtInt, fmtCompact, fmtRate } = getI18nBridge();
+  const { fmtInt, fmtRate } = getI18nBridge();
+  const fmtCompact = t('fmtCompact');
 
   const globalReg = data?.globalModelRegistry || {};
   const globalEntries = Array.isArray(globalReg.entries)

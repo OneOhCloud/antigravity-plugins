@@ -91,6 +91,7 @@ export function App() {
   const selectedScopeRef = useRef(selectedScope);
   const treeModeRef = useRef(treeMode);
   const workspaceUrisRef = useRef(initialWorkspaceUris);
+  const allowCrossWorkspaceRef = useRef(false);
   selectedConvRef.current = selectedConversationId;
   selectedScopeRef.current = selectedScope;
   treeModeRef.current = treeMode;
@@ -138,7 +139,19 @@ export function App() {
           queryParams.workspaceUris = JSON.stringify(targetWsUris);
         }
 
-        const data = await apiFetch('/api/telemetry', queryParams);
+        let data = await apiFetch('/api/telemetry', queryParams);
+        if (
+          targetScope === 'tree' &&
+          targetTreeMode !== 'live_1m' &&
+          urlParams.get('scope') !== 'tree' &&
+          (data.sessionHierarchy?.subagentCount || 0) > 0 &&
+          (data.sessionHierarchy?.activeTreeTotals?.activeNodeCount || 0) === 0
+        ) {
+          data = await apiFetch('/api/telemetry', {
+            ...queryParams,
+            scope: 'tree_all',
+          });
+        }
         setFetchError(false);
         setTelemetry(data);
         if (data.conversationId) {
@@ -210,6 +223,7 @@ export function App() {
         const prevKey = workspaceUrisRef.current.join('|');
         const nextKey = nextUris.join('|');
         if (prevKey !== nextKey) {
+          allowCrossWorkspaceRef.current = false;
           workspaceUrisRef.current = nextUris;
           selectedConvRef.current = '';
           setSelectedConversationId('');
@@ -278,11 +292,12 @@ export function App() {
 
   const handleSelectConversation = useCallback(
     (nextConvId) => {
+      allowCrossWorkspaceRef.current = activePanel === 'global';
       setSelectedConversationId(nextConvId);
       setSelectedScope('root');
       refreshTelemetry(nextConvId, 'root');
     },
-    [refreshTelemetry]
+    [activePanel, refreshTelemetry]
   );
 
   const handleSelectScope = useCallback(
@@ -321,7 +336,11 @@ export function App() {
   const handleSelectPanel = useCallback(
     (nextPanel) => {
       setActivePanel(nextPanel);
-      if (nextPanel === 'conversation' && telemetry) {
+      if (
+        nextPanel === 'conversation' &&
+        telemetry &&
+        !allowCrossWorkspaceRef.current
+      ) {
         const wsConvs = Array.isArray(telemetry.availableConversations)
           ? telemetry.availableConversations
           : [];

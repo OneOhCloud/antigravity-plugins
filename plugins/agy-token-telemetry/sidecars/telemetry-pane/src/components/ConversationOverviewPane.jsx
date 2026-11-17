@@ -129,13 +129,13 @@ function SystemMetricUnit({ id, label, meta, valueText, barPct }) {
 export function ConversationOverviewPane({ data, t }) {
   const {
     fmtInt,
-    fmtCompact,
     fmtRate,
     fmtSec,
     fmtPct,
     fmtBytesGib,
     fmtMemoryPairGib,
   } = getI18nBridge();
+  const fmtCompact = t('fmtCompact');
 
   const cwState = data?.contextWindowState || {};
   const usedCtx = cwState.contextTokensUsed ?? cwState.estimatedTokensUsed ?? 0;
@@ -205,8 +205,8 @@ export function ConversationOverviewPane({ data, t }) {
                 id="tkSampleCount"
               >
                 {isLiveMode
-                  ? t('fmtValidSamples1m')(overall.sampleCount || 0)
-                  : t('fmtValidSamples')(overall.sampleCount || 0)}
+                  ? t('fmtValidSamples1m')(fmtInt(overall.sampleCount || 0))
+                  : t('fmtValidSamples')(fmtInt(overall.sampleCount || 0))}
               </span>
             </div>
             <div className="leading-none">

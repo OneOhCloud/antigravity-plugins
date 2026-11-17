@@ -52,7 +52,12 @@ export function SessionSelectPopover({
         type="button"
         id={id}
         className="w-full min-w-0 flex items-center gap-[7px] py-[5px] px-2.5 rounded-[8px] bg-[#f5f5f7] text-[#1d1d1f] text-[12px] text-left cursor-pointer hover:bg-[#ececef] transition-colors"
-        title={tooltip || selectedOption.label}
+        title={
+          tooltip ||
+          (selectedOption.meta
+            ? `${selectedOption.label} · ${selectedOption.meta}`
+            : selectedOption.label)
+        }
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
@@ -64,6 +69,11 @@ export function SessionSelectPopover({
         <span className="flex-1 min-w-0 truncate font-medium">
           {selectedOption.label}
         </span>
+        {selectedOption.meta && (
+          <span className="shrink-0 font-mono text-[11px] text-[#515154] tabular-nums whitespace-nowrap">
+            {selectedOption.meta}
+          </span>
+        )}
         <svg
           className={`shrink-0 text-[#515154] transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
           viewBox="0 0 12 12"
@@ -103,7 +113,9 @@ export function SessionSelectPopover({
                     ? 'bg-[#e8e8ed] font-semibold'
                     : 'bg-transparent hover:bg-[#f5f5f7]'
                 }`}
-                title={opt.label}
+                title={
+                  opt.meta ? `${opt.label} · ${opt.meta}` : opt.label
+                }
                 onClick={() => {
                   setIsOpen(false);
                   if (onChange && opt.value !== value) {
@@ -116,6 +128,11 @@ export function SessionSelectPopover({
                   title={opt.statusLabel}
                 />
                 <span className="flex-1 min-w-0 truncate">{opt.label}</span>
+                {opt.meta && (
+                  <span className="shrink-0 font-mono text-[11px] text-[#86868b] tabular-nums whitespace-nowrap">
+                    {opt.meta}
+                  </span>
+                )}
               </button>
             );
           })}

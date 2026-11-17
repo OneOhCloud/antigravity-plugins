@@ -3,6 +3,8 @@
  * aggregation helpers for single-agent and full session-tree scopes.
  */
 
+import { isValidChatStepRecord } from './proto_decoder.mjs';
+
 export function isStepValidForE2E(step) {
   if (!step) return false;
   if (step.isValidE2ESample !== undefined) return Boolean(step.isValidE2ESample);
@@ -266,9 +268,14 @@ export function aggregateScopedTokensAndModels(
   let totalThinkingOutputTokens = 0;
   let totalResponseOutputTokens = 0;
   let totalRetryCount = 0;
+  let totalRequests = 0;
   const modelGroupsMap = new Map();
 
   for (const step of chatStepRecords) {
+    if (!isValidChatStepRecord(step)) {
+      continue;
+    }
+    totalRequests += 1;
     totalInputTokens += step.inputTokens;
     totalCacheReadTokens += step.cacheReadTokens;
     totalCacheWriteTokens += step.cacheWriteTokens;
@@ -276,14 +283,6 @@ export function aggregateScopedTokensAndModels(
     totalThinkingOutputTokens += step.thinkingOutputTokens;
     totalResponseOutputTokens += step.responseOutputTokens;
     totalRetryCount += step.retryCount;
-
-    if (
-      step.responseModel === 'unspecified' &&
-      step.inputTokens === 0 &&
-      step.outputTokens === 0
-    ) {
-      continue;
-    }
 
     accumulateStepIntoModelGroup(modelGroupsMap, step);
   }
@@ -297,7 +296,7 @@ export function aggregateScopedTokensAndModels(
 
   return {
     tokenTotals: {
-      totalRequests: chatStepRecords.length,
+      totalRequests,
       validThroughputRequests: validThroughputSteps.length,
       totalRetryCount,
       totalInputTokens,

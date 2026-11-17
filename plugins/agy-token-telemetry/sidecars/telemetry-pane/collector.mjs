@@ -6,9 +6,12 @@
  */
 
 import { homedir } from 'node:os';
-import { collectGlobalTokenHistory } from './history_aggregator.mjs';
+import {
+  attachHistoryTotalsToConversations,
+  collectGlobalTokenHistory,
+} from './history_aggregator.mjs';
 import { collectHostSystemMetrics } from './host_metrics.mjs';
-import { normalizeStepRecord } from './proto_decoder.mjs';
+import { isValidChatStepRecord, normalizeStepRecord } from './proto_decoder.mjs';
 import { collectRuntimeEnvironment, detectHostLocale } from './runtime_env.mjs';
 import {
   listAvailableConversations,
@@ -23,6 +26,7 @@ import {
   readLatestCheckpointFromSqlite,
   readStepTimestampsFromSqlite,
   readStepTimestampsFromTranscript,
+  resolveStepTimestampInfo,
 } from './sqlite_rpc.mjs';
 import {
   accumulateStepIntoModelGroup,
@@ -92,10 +96,7 @@ export function collectGlobalModelRegistry({
     for (const conv of allNodes) {
       const records = readGeneratorMetadataFromSqlite(conv.dbPath);
       for (const step of records) {
-        if (!step.hasChatModel) continue;
-        if (step.responseModel === 'unspecified' && step.outputTokens === 0) {
-          continue;
-        }
+        if (!isValidChatStepRecord(step)) continue;
         totalGlobalRequests += 1;
         totalGlobalInputTokens += step.inputTokens;
         totalGlobalCacheReadTokens += step.cacheReadTokens;
@@ -187,6 +188,8 @@ function resolveTargetRootAndScope(
   let activeScope = 'root';
   if (normalizedScopeParam === 'root') {
     activeScope = 'root';
+  } else if (normalizedScopeParam === 'tree_all') {
+    activeScope = 'tree_all';
   } else if (normalizedScopeParam === 'tree') {
     activeScope = 'tree';
   } else if (
@@ -265,47 +268,19 @@ async function collectNodeTelemetryEntry({
     if (rec.plannerMaxOutputTokens > nodePlannerMaxOutputTokens) {
       nodePlannerMaxOutputTokens = rec.plannerMaxOutputTokens;
     }
-    if (!rec.hasChatModel) continue;
-
-    // Skip empty canceled pre-compact generator metadata records that executed no steps
-    if (
-      rec.stepIndices.length === 0 &&
-      rec.inputTokens === 0 &&
-      rec.cacheReadTokens === 0 &&
-      rec.outputTokens === 0 &&
-      rec.responseModel === 'unspecified'
-    ) {
-      continue;
-    }
+    if (!isValidChatStepRecord(rec)) continue;
 
     const catalogEntry =
       modelCatalogByLabel.get(rec.modelDisplayName) ||
       modelCatalogByEnum.get(rec.modelEnum) ||
       null;
 
-    const sqliteFirst = sqliteTsByStep.get(rec.firstStepIndex);
-    const sqliteLast = sqliteTsByStep.get(rec.lastStepIndex);
-    let timestamp =
-      sqliteLast?.timestampIso ||
-      sqliteFirst?.timestampIso ||
-      transcriptTsByStep.get(rec.firstStepIndex) ||
-      transcriptTsByStep.get(rec.lastStepIndex) ||
-      '';
-    let timestampMs =
-      sqliteLast?.timestampMs ||
-      sqliteFirst?.timestampMs ||
-      (timestamp ? Date.parse(timestamp) : 0);
-
-    if (!timestampMs && Array.isArray(rec.stepIndices)) {
-      for (const idx of rec.stepIndices) {
-        const hit = sqliteTsByStep.get(idx);
-        if (hit?.timestampMs > 0) {
-          timestamp = hit.timestampIso;
-          timestampMs = hit.timestampMs;
-          break;
-        }
-      }
-    }
+    let { timestampIso: timestamp, timestampMs } = resolveStepTimestampInfo(
+      rec,
+      sqliteTsByStep,
+      transcriptTsByStep,
+      0
+    );
 
     if (
       (!Number.isFinite(timestampMs) || timestampMs <= 0) &&
@@ -497,6 +472,39 @@ function isRecentStepWithinWindow(step, nowMs, liveWindowMs) {
   return ts > 0 && nowMs - ts <= liveWindowMs;
 }
 
+function summarizeContextEntries(entries, defaultMaxCtx) {
+  let sumUsedCtx = 0;
+  let sumHeuristicCtx = 0;
+  let sumMaxCtx = 0;
+  const breakdownMap = new Map();
+
+  for (const entry of entries) {
+    const ctxStep = entry?.latestContextStep;
+    sumUsedCtx +=
+      ctxStep?.contextTokensUsed ?? ctxStep?.estimatedTokensUsed ?? 0;
+    sumHeuristicCtx +=
+      ctxStep?.heuristicTokensUsed ?? ctxStep?.estimatedTokensUsed ?? 0;
+    sumMaxCtx += ctxStep?.maxContextTokens || defaultMaxCtx;
+    for (const g of ctxStep?.breakdownGroups || []) {
+      if (!g?.name) continue;
+      breakdownMap.set(
+        g.name,
+        (breakdownMap.get(g.name) || 0) + (g.totalTokens || 0)
+      );
+    }
+  }
+
+  return {
+    contextTokensUsed: sumUsedCtx,
+    estimatedTokensUsed: sumUsedCtx,
+    heuristicTokensUsed: sumHeuristicCtx,
+    maxContextTokens: sumMaxCtx || defaultMaxCtx,
+    breakdownGroups: Array.from(breakdownMap.entries()).map(
+      ([name, totalTokens]) => ({ name, totalTokens })
+    ),
+  };
+}
+
 function selectScopedNodeEntries(
   activeScope,
   rootConv,
@@ -509,34 +517,33 @@ function selectScopedNodeEntries(
   } = {}
 ) {
   const normalizedTreeMode = normalizeTreeMode(treeMode);
-  if (activeScope === 'tree') {
+  if (activeScope === 'tree' || activeScope === 'tree_all') {
     const allEntries = allHierarchyNodes
       .map((n) => nodeDataById.get(n.conversationId))
       .filter(Boolean);
     const activeEntries = allEntries.filter(
       (entry) => entry.summary?.lifecycleStatus === 'active'
     );
+    const sourceEntries = activeScope === 'tree_all' ? allEntries : activeEntries;
     const selectedEntries = [];
     const chatStepRecords = [];
-    let plannerMaxOutputTokens = 0;
 
-    for (const entry of activeEntries) {
-      const scopedSteps =
-        normalizedTreeMode === 'live_1m'
-          ? entry.chatStepRecords.filter((s) =>
-              isRecentStepWithinWindow(s, nowMs, liveWindowMs)
-            )
-          : entry.chatStepRecords;
-      if (normalizedTreeMode === 'live_1m' && scopedSteps.length === 0) {
+    for (const entry of sourceEntries) {
+      const applyLiveFilter =
+        activeScope === 'tree' && normalizedTreeMode === 'live_1m';
+      const scopedSteps = applyLiveFilter
+        ? entry.chatStepRecords.filter((s) =>
+            isRecentStepWithinWindow(s, nowMs, liveWindowMs)
+          )
+        : entry.chatStepRecords;
+      if (applyLiveFilter && scopedSteps.length === 0) {
         continue;
       }
-      const scopedValidSteps = scopedSteps.filter(isStepValidForE2E);
-      plannerMaxOutputTokens += entry.plannerMaxOutputTokens || 0;
       chatStepRecords.push(...scopedSteps);
       selectedEntries.push({
         ...entry,
         chatStepRecords: scopedSteps,
-        validStepRecords: scopedValidSteps,
+        validStepRecords: scopedSteps.filter(isStepValidForE2E),
       });
     }
 
@@ -549,42 +556,26 @@ function selectScopedNodeEntries(
       });
     }
 
-    const rootCtxStep = nodeDataById.get(rootConv.conversationId)?.latestContextStep;
-    const defaultMaxCtx = rootCtxStep?.maxContextTokens || 256000;
-    let sumUsedCtx = 0;
-    let sumHeuristicCtx = 0;
-    let sumMaxCtx = 0;
-    const breakdownMap = new Map();
-
-    for (const entry of selectedEntries) {
-      const ctxStep = entry.latestContextStep;
-      sumUsedCtx +=
-        ctxStep?.contextTokensUsed ?? ctxStep?.estimatedTokensUsed ?? 0;
-      sumHeuristicCtx +=
-        ctxStep?.heuristicTokensUsed ?? ctxStep?.estimatedTokensUsed ?? 0;
-      sumMaxCtx += ctxStep?.maxContextTokens || defaultMaxCtx;
-      for (const g of ctxStep?.breakdownGroups || []) {
-        if (!g?.name) continue;
-        breakdownMap.set(
-          g.name,
-          (breakdownMap.get(g.name) || 0) + (g.totalTokens || 0)
-        );
-      }
-    }
+    const rootEntry = nodeDataById.get(rootConv.conversationId);
+    const defaultMaxCtx = rootEntry?.latestContextStep?.maxContextTokens || 256000;
+    const ctxEntries =
+      activeScope === 'tree_all'
+        ? activeEntries.length > 0
+          ? activeEntries
+          : rootEntry
+            ? [rootEntry]
+            : []
+        : selectedEntries;
+    const plannerMaxOutputTokens = ctxEntries.reduce(
+      (sum, entry) => sum + (entry.plannerMaxOutputTokens || 0),
+      0
+    );
 
     return {
       selectedNodeEntries: selectedEntries,
       plannerMaxOutputTokens,
       chatStepRecords,
-      latestContextStep: {
-        contextTokensUsed: sumUsedCtx,
-        estimatedTokensUsed: sumUsedCtx,
-        heuristicTokensUsed: sumHeuristicCtx,
-        maxContextTokens: sumMaxCtx || defaultMaxCtx,
-        breakdownGroups: Array.from(breakdownMap.entries()).map(
-          ([name, totalTokens]) => ({ name, totalTokens })
-        ),
-      },
+      latestContextStep: summarizeContextEntries(ctxEntries, defaultMaxCtx),
     };
   }
 
@@ -746,10 +737,15 @@ export async function collectConversationTelemetry(
 ) {
   const normalizedTreeMode = normalizeTreeMode(treeMode);
   const geminiRoot = getGeminiRootDir(homeDirPath);
-  const globalConversations = listAvailableConversations({
+  const globalTokenHistory = collectGlobalTokenHistory({ homeDirPath, nowMs });
+  const rawGlobalConversations = listAvailableConversations({
     homeDirPath,
     limit: DEFAULT_GLOBAL_CONVERSATION_LIMIT,
   });
+  const globalConversations = attachHistoryTotalsToConversations(
+    rawGlobalConversations,
+    { homeDirPath, nowMs }
+  );
 
   const explicitConvId = conversationId || env.ANTIGRAVITY_CONVERSATION_ID || '';
   const {
@@ -767,7 +763,6 @@ export async function collectConversationTelemetry(
     collectRuntimeEnvironment({ homeDirPath, env }),
     collectHostSystemMetrics({ homeDirPath }),
   ]);
-  const globalTokenHistory = collectGlobalTokenHistory({ homeDirPath, nowMs });
 
   const modelCatalogByEnum = new Map();
   const modelCatalogByLabel = new Map();
@@ -858,13 +853,28 @@ export async function collectConversationTelemetry(
     0;
   const contextUsageRatio =
     maxContextTokens > 0 ? contextTokensUsed / maxContextTokens : 0;
+  const singleAgentEntry =
+    activeScope !== 'root' &&
+    activeScope !== 'tree' &&
+    activeScope !== 'tree_all' &&
+    nodeDataById.has(activeScope)
+      ? nodeDataById.get(activeScope)
+      : nodeDataById.get(rootConv.conversationId);
+  const singleAgentMaxContextTokens =
+    singleAgentEntry?.latestContextStep?.maxContextTokens ||
+    selectedNodeEntries[0]?.latestContextStep?.maxContextTokens ||
+    0;
+  const singleAgentPlannerMaxOutputTokens =
+    singleAgentEntry?.plannerMaxOutputTokens ||
+    selectedNodeEntries[0]?.plannerMaxOutputTokens ||
+    0;
 
   return {
     conversationId: rootConv.conversationId,
     activeScope,
     treeMode: normalizedTreeMode,
     scopedConversationId:
-      activeScope === 'tree' || activeScope === 'root'
+      activeScope === 'tree' || activeScope === 'tree_all' || activeScope === 'root'
         ? rootConv.conversationId
         : activeScope,
     conversationMeta: rootConv,
@@ -893,6 +903,8 @@ export async function collectConversationTelemetry(
       heuristicTokensUsed,
       maxContextTokens,
       plannerMaxOutputTokens,
+      singleAgentMaxContextTokens,
+      singleAgentPlannerMaxOutputTokens,
       usageRatio: contextUsageRatio,
       remainingContextTokens: Math.max(0, maxContextTokens - contextTokensUsed),
       breakdownGroups: latestContextStep?.breakdownGroups || [],

@@ -37,7 +37,8 @@ export function TopBar({
   statusTimestamp,
   openMenu = '',
 }) {
-  const { fmtInt, fmtCompact } = getI18nBridge();
+  const { fmtInt } = getI18nBridge();
+  const fmtCompact = t('fmtCompact');
 
   const conversationOptions = useMemo(() => {
     const list = Array.isArray(telemetry?.availableConversations)
@@ -123,25 +124,32 @@ export function TopBar({
     const treeLabel =
       treeMode === 'live_1m'
         ? liveTreeTotals
-          ? t('fmtScopeTreeLiveOption')(
+          ? t('fmtScopeTreeLiveLabel')(
               liveTreeTotals.liveNodeCount || 0,
-              liveTreeTotals.activeNodeCount || 0,
+              liveTreeTotals.activeNodeCount || 0
+            )
+          : t('fmtScopeTreeLabel')(sh.subagentCount)
+        : activeTreeTotals
+          ? t('fmtScopeTreeActiveLabel')(activeTreeTotals.activeNodeCount || 0)
+          : t('fmtScopeTreeLabel')(sh.subagentCount);
+
+    const treeMeta =
+      treeMode === 'live_1m'
+        ? liveTreeTotals
+          ? t('fmtScopeStatsMeta')(
               fmtInt(liveTreeTotals.requestCount || 0),
               fmtCompact(liveTreeTotals.grandTotalTokens || 0)
             )
-          : t('fmtScopeTreeOption')(
-              sh.subagentCount,
+          : t('fmtScopeStatsMeta')(
               fmtInt(treeTotals.requestCount || 0),
               fmtCompact(treeTotals.grandTotalTokens || 0)
             )
         : activeTreeTotals
-          ? t('fmtScopeTreeActiveFullOption')(
-              activeTreeTotals.activeNodeCount || 0,
+          ? t('fmtScopeStatsMeta')(
               fmtInt(activeTreeTotals.requestCount || 0),
               fmtCompact(activeTreeTotals.grandTotalTokens || 0)
             )
-          : t('fmtScopeTreeOption')(
-              sh.subagentCount,
+          : t('fmtScopeStatsMeta')(
               fmtInt(treeTotals.requestCount || 0),
               fmtCompact(treeTotals.grandTotalTokens || 0)
             );
@@ -149,8 +157,8 @@ export function TopBar({
     const items = [
       {
         value: 'root',
-        label: t('fmtScopeRootOption')(
-          rootTitle,
+        label: t('fmtScopeRootLabel')(rootTitle),
+        meta: t('fmtScopeStatsMeta')(
           fmtInt(rootTotals.requestCount || 0),
           fmtCompact(rootTotals.grandTotalTokens || 0)
         ),
@@ -158,12 +166,30 @@ export function TopBar({
         statusLabel: mapStatusLabel(rootStatus, t),
       },
       {
-        value: 'tree',
-        label: treeLabel,
-        lifecycleStatus: treeStatus,
-        statusLabel: mapStatusLabel(treeStatus, t),
+        value: 'tree_all',
+        label: t('fmtScopeTreeLabel')(sh.subagentCount),
+        meta: t('fmtScopeStatsMeta')(
+          fmtInt(treeTotals.requestCount || 0),
+          fmtCompact(treeTotals.grandTotalTokens || 0)
+        ),
+        lifecycleStatus: sh.treeLifecycleStatus || 'inactive',
+        statusLabel: mapStatusLabel(sh.treeLifecycleStatus || 'inactive', t),
       },
     ];
+
+    const showActiveTreeOption =
+      (activeNodeCount > 0 &&
+        (activeNodeCount < 1 + sh.subagentCount || treeMode === 'live_1m')) ||
+      selectedScope === 'tree';
+    if (showActiveTreeOption) {
+      items.push({
+        value: 'tree',
+        label: treeLabel,
+        meta: treeMeta,
+        lifecycleStatus: treeStatus,
+        statusLabel: mapStatusLabel(treeStatus, t),
+      });
+    }
 
     const subNodes = (Array.isArray(sh.nodes) ? sh.nodes : []).filter(
       (n) => n.isSubagent
@@ -176,10 +202,8 @@ export function TopBar({
       const subStatus = sub.lifecycleStatus || 'inactive';
       items.push({
         value: sub.conversationId,
-        label: t('fmtScopeSubOption')(
-          depth,
-          title,
-          shortId,
+        label: t('fmtScopeSubLabel')(depth, title, shortId),
+        meta: t('fmtScopeStatsMeta')(
           fmtInt(sub.requestCount || 0),
           fmtCompact(sub.grandTotalTokens || 0)
         ),
@@ -189,7 +213,7 @@ export function TopBar({
     }
 
     return items;
-  }, [telemetry?.sessionHierarchy, treeMode, t, fmtInt, fmtCompact]);
+  }, [telemetry?.sessionHierarchy, selectedScope, treeMode, t, fmtInt]);
 
   const activeConversationOptions =
     activePanel === 'conversation'

@@ -829,3 +829,18 @@ export function normalizeStepRecord(raw) {
     customMetadata,
   };
 }
+
+/**
+ * Canonical predicate determining whether a decoded `GeneratorStepRecord`
+ * represents a real LLM chat invocation (excluding non-chat steps and
+ * canceled/empty zero-token `unspecified` placeholder records).
+ */
+export function isValidChatStepRecord(step) {
+  if (!step || !step.hasChatModel) return false;
+  return !(
+    step.responseModel === 'unspecified' &&
+    step.inputTokens === 0 &&
+    step.cacheReadTokens === 0 &&
+    step.outputTokens === 0
+  );
+}
