@@ -7,7 +7,7 @@ import React from 'react';
 import { getI18nBridge } from '../utils.js';
 
 export function GlobalModelsPane({ data, t }) {
-  const { fmtInt, fmtRate } = getI18nBridge();
+  const { fmtInt, fmtRate, fmtContextTokens } = getI18nBridge();
   const fmtCompact = t('fmtCompact');
 
   const globalReg = data?.globalModelRegistry || {};
@@ -105,16 +105,16 @@ export function GlobalModelsPane({ data, t }) {
           <table className="w-full table-fixed border-collapse text-left tabular-nums">
             <thead>
               <tr>
-                <th className="w-[33%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
+                <th className="w-[28%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
                   {t('thDisplayName')}
                 </th>
-                <th className="w-[27%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
+                <th className="w-[26%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
                   {t('thEndpointId')}
                 </th>
-                <th className="w-[19%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-0 pb-2 pl-1 text-right whitespace-nowrap z-[1]">
+                <th className="w-[20%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-0 pb-2 pl-1 text-right whitespace-nowrap z-[1]">
                   {t('thCallsWindow')}
                 </th>
-                <th className="w-[21%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-0 pb-2 pl-1 text-right whitespace-nowrap z-[1]">
+                <th className="w-[26%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-0 pb-2 pl-1 text-right whitespace-nowrap z-[1]">
                   {t('thE2EVelocity')}
                 </th>
               </tr>
@@ -158,7 +158,7 @@ export function GlobalModelsPane({ data, t }) {
                       <div className="text-[#86868b] text-[10.5px] mt-0.5">
                         {t('fmtWinShort')(
                           g.maxContextTokens > 0
-                            ? fmtCompact(g.maxContextTokens)
+                            ? fmtContextTokens(g.maxContextTokens)
                             : '-'
                         )}
                       </div>

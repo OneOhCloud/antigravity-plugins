@@ -11,7 +11,7 @@ import {
 } from '../utils.js';
 
 export function GlobalConfigStepsPane({ data, t }) {
-  const { fmtInt, fmtRate, fmtSec } = getI18nBridge();
+  const { fmtInt, fmtRate, fmtSec, fmtContextTokens } = getI18nBridge();
   const fmtCompact = t('fmtCompact');
 
   const env = data?.runtimeEnv || {};
@@ -78,7 +78,7 @@ export function GlobalConfigStepsPane({ data, t }) {
             id="stContextWinVal"
           >
             {maxCtx > 0
-              ? fmtCompact(maxCtx)
+              ? fmtContextTokens(maxCtx)
               : cwCfg.configuredValue || t('defaultVal')}
           </div>
           <div
@@ -86,7 +86,7 @@ export function GlobalConfigStepsPane({ data, t }) {
             id="stPlannerMaxOut"
           >
             {t('fmtMaxStepOut')(
-              maxOut > 0 ? fmtCompact(maxOut) : '-',
+              maxOut > 0 ? fmtContextTokens(maxOut) : '-',
               cwCfg.configuredValue ? t('overridden') : t('notOverridden')
             )}
           </div>
@@ -109,16 +109,16 @@ export function GlobalConfigStepsPane({ data, t }) {
           <table className="w-full table-fixed border-collapse text-left tabular-nums">
             <thead>
               <tr>
-                <th className="w-[19%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
+                <th className="w-[22%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
                   {t('thStep')}
                 </th>
-                <th className="w-[33%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
+                <th className="w-[28%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-2 pb-2 pl-0 whitespace-nowrap z-[1]">
                   {t('thModelEndpoint')}
                 </th>
-                <th className="w-[22%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-0 pb-2 pl-1 text-right whitespace-nowrap z-[1]">
+                <th className="w-[21%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-0 pb-2 pl-1 text-right whitespace-nowrap z-[1]">
                   {t('thOutputTtft')}
                 </th>
-                <th className="w-[26%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-0 pb-2 pl-1 text-right whitespace-nowrap z-[1]">
+                <th className="w-[29%] sticky top-0 bg-white text-[11px] font-semibold text-[#86868b] pt-0.5 pr-0 pb-2 pl-1 text-right whitespace-nowrap z-[1]">
                   {t('thE2EVelocity')}
                 </th>
               </tr>

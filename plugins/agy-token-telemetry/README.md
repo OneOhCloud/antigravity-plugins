@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/OneOhCloud/antigravity-plugins/main
 3. **Host System Metrics Cluster in Session Overview**:
    - Samples real-time **CPU** utilization (`os.cpus()` tick delta), **Load Average** (`1m` / `5m`), **Physical Memory** (macOS Activity Monitor `vm_stat` formula / Linux `MemAvailable`), and **Disk** free capacity (`fs.statfsSync`) in a compact `2x2` top-right cluster with 1:1 progress bars.
 4. **API-Calibrated Context Window Wafer Matrix & Immediate Manual `/compact` Refresh**:
-   - Calibrates context window occupancy (`contextTokensUsed / maxContextTokens`) to actual API prompt tokens (`inputTokens + cacheReadTokens`) and immediately recalculates usage from `CORTEX_STEP_TYPE_CHECKPOINT` (`step_type = 23`) steps upon manual `/compact`.
+   - Calibrates context window occupancy (`contextTokensUsed / maxContextTokens`) to actual API prompt tokens (`inputTokens + cacheReadTokens`) and immediately recalculates usage from `CORTEX_STEP_TYPE_CHECKPOINT` (`step_type = 23`) steps upon manual `/compact`, keeping technical `k / M` units for context/step limits across both `en` and `zh-CN`.
 5. **Readable Model Name & Endpoint Registry + Apple HIG Single-Color Bilingual UI (`en` / `zh-CN`)**:
    - Extracts `modelDisplayName`, `responseModel`, `MODEL_PLACEHOLDER_*` (`M1000+` compatible), `plannerConfig.maxOutputTokens`, and `apiProvider` across up to 500 local conversations.
    - Pure React 18 + Tailwind CSS v4 production bundle (`dist/`) on a unified `#FFFFFF` canvas with 4pt/8pt spacing rhythm, tri-state vector SVG status indicators, and `1s`, `5s` (default), `10s`, `30s`, or `Manual` refresh intervals.

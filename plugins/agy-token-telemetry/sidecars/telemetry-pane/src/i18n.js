@@ -57,7 +57,7 @@ export const I18N = {
     tkValidListTitle: 'Requests',
     sysCpuTitle: 'CPU',
     sysLoadTitle: 'Load',
-    sysMemTitle: 'Memory',
+    sysMemTitle: 'Mem',
     sysDiskTitle: 'Disk',
     fmtCpuCores: (c) => `${c}C`,
     fmtLoadSub: (l5) => `5m ${l5}`,
@@ -426,6 +426,13 @@ export const fmtCompact = (n, lang = 'en') => {
   if (val >= 1e3) return (val / 1e3).toFixed(1) + 'k';
   return Math.round(val).toLocaleString('en-US');
 };
+
+/**
+ * Formats context window capacities and step token limits using technical
+ * `k` / `M` / `B` units regardless of UI language so model window sizes never
+ * mix `万` with grid cell capacities.
+ */
+export const fmtContextTokens = (n) => fmtCompact(n, 'en');
 
 export const fmtRate = (n) => {
   const val = Number(n);

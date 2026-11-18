@@ -103,10 +103,10 @@ function SystemMetricUnit({ id, label, meta, valueText, barPct }) {
   return (
     <div className="flex flex-col gap-2 min-w-0">
       <div className="flex items-baseline justify-between gap-1 min-w-0">
-        <span className="text-[11.5px] font-semibold text-[#515154] whitespace-nowrap">
+        <span className="text-[11px] font-semibold text-[#515154] whitespace-nowrap">
           {label}
         </span>
-        <span className="font-mono text-[10px] text-[#86868b] tabular-nums whitespace-nowrap truncate">
+        <span className="font-mono text-[9.5px] text-[#86868b] tabular-nums whitespace-nowrap truncate">
           {meta}
         </span>
       </div>
@@ -132,6 +132,7 @@ export function ConversationOverviewPane({ data, t }) {
     fmtRate,
     fmtSec,
     fmtPct,
+    fmtContextTokens,
     fmtBytesGib,
     fmtMemoryPairGib,
   } = getI18nBridge();
@@ -165,15 +166,15 @@ export function ConversationOverviewPane({ data, t }) {
 
   const divergentHeuristicLabel =
     heuristicCtx > 0 && Math.abs(heuristicCtx - usedCtx) >= 1000
-      ? fmtCompact(heuristicCtx)
+      ? fmtContextTokens(heuristicCtx)
       : '';
 
   const gridTooltip = t('fmtCtxGridTooltip')(
     gridSpec.filledCells,
     gridSpec.totalCells,
-    fmtCompact(gridSpec.tokensPerCell),
-    fmtCompact(usedCtx),
-    fmtCompact(gridSpec.effectiveMax),
+    fmtContextTokens(gridSpec.tokensPerCell),
+    fmtContextTokens(usedCtx),
+    fmtContextTokens(gridSpec.effectiveMax),
     divergentHeuristicLabel
   );
 
@@ -193,7 +194,7 @@ export function ConversationOverviewPane({ data, t }) {
       className="flex-1 min-h-0 max-h-full flex flex-col gap-5 overflow-y-auto overflow-x-hidden pr-0.5"
       id="pane-overview"
     >
-      <div className="shrink-0 grid grid-cols-[minmax(0,1.04fr)_minmax(0,1fr)] gap-7 sm:gap-8 items-start min-w-0">
+      <div className="shrink-0 grid grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)] gap-5 sm:gap-7 items-start min-w-0">
         <div className="flex flex-col gap-4 min-w-0">
           <div className="flex flex-col gap-2 min-w-0">
             <div className="flex items-baseline justify-between gap-1.5">
@@ -271,7 +272,7 @@ export function ConversationOverviewPane({ data, t }) {
 
         <div
           id="ovSystemCluster"
-          className="grid grid-cols-2 gap-x-3 gap-y-3.5 min-w-0 pt-0.5"
+          className="grid grid-cols-2 gap-x-2 gap-y-3.5 min-w-0 pt-0.5"
         >
           <SystemMetricUnit
             id="sysCpuVal"
@@ -308,7 +309,7 @@ export function ConversationOverviewPane({ data, t }) {
         className="flex flex-col gap-3 shrink-0 min-w-0 min-h-[76px]"
         id="ovCtxCard"
       >
-        <div className="flex items-baseline justify-between gap-2 shrink-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 shrink-0">
           <div className="inline-flex items-baseline gap-1.5 shrink-0 whitespace-nowrap">
             <span className="text-[12px] font-semibold text-[#515154] tracking-[-0.01em] whitespace-nowrap">
               {t('ovContextWindow')}
@@ -321,14 +322,14 @@ export function ConversationOverviewPane({ data, t }) {
             </span>
           </div>
           <span
-            className="font-mono text-[10.5px] tracking-[-0.03em] text-[#86868b] tabular-nums whitespace-nowrap truncate"
+            className="font-mono text-[10px] tracking-[-0.03em] text-[#86868b] tabular-nums whitespace-nowrap min-w-0"
             id="ovCtxMeta"
           >
             {t('fmtContextWindowMeta')(
-              fmtCompact(usedCtx),
-              fmtCompact(gridSpec.effectiveMax),
-              fmtCompact(availCtx),
-              fmtCompact(gridSpec.tokensPerCell)
+              fmtContextTokens(usedCtx),
+              fmtContextTokens(gridSpec.effectiveMax),
+              fmtContextTokens(availCtx),
+              fmtContextTokens(gridSpec.tokensPerCell)
             )}
           </span>
         </div>
